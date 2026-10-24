@@ -17,7 +17,13 @@ pnpm-debug.log*
 /build/
 /coverage/
 
+# Generated files
+/generated/
+
 # Local and OS files
 .DS_Store
 Thumbs.db
 .vscode/
+
+# TypeScript build artifacts
+*.tsbuildinfo
