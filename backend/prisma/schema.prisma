@@ -5,3 +5,456 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+// --------------------------------------------------
+// ENUMS
+// --------------------------------------------------
+
+enum InstitutionType {
+  SCHOOL
+  UNIVERSITY
+
+  @@map("institution_type")
+}
+
+enum UserRole {
+  INSTITUTION_ADMIN
+  TEACHER
+  STUDENT
+
+  @@map("user_role")
+}
+
+enum SessionStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  EXPIRED
+
+  @@map("session_status")
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+  EXCUSED
+
+  @@map("attendance_status")
+}
+
+enum AttendanceMethod {
+  BLE
+  MANUAL
+  ADMIN_OVERRIDE
+
+  @@map("attendance_method")
+}
+
+enum DeviceStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  REVOKED
+
+  @@map("device_status")
+}
+
+// --------------------------------------------------
+// 1. INSTITUTIONS
+// --------------------------------------------------
+
+model Institution {
+  id        String          @id @default(uuid()) @db.Uuid
+  name      String
+  code      String          @unique
+  type      InstitutionType
+  email     String?
+  isActive  Boolean         @default(true) @map("is_active")
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  profiles           Profile[]
+  departments        Department[]
+  classes            SchoolClass[]
+  subjects           Subject[]
+  classSubjects      ClassSubject[]
+  enrollments        Enrollment[]
+  devices            Device[]
+  timetableSlots     TimetableSlot[]
+  attendanceSessions AttendanceSession[]
+  attendanceRecords  AttendanceRecord[]
+  auditLogs          AuditLog[]
+
+  @@map("institutions")
+}
+
+// --------------------------------------------------
+// 2. PROFILES
+// IDs match Supabase Auth user UUIDs.
+// Passwords are managed by Supabase Auth.
+// --------------------------------------------------
+
+model Profile {
+  id            String   @id @db.Uuid
+  institutionId String   @map("institution_id") @db.Uuid
+  fullName      String   @map("full_name")
+  email         String
+  phone         String?
+  role          UserRole
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+
+  studentDetails StudentDetail?
+  teacherDetails TeacherDetail?
+
+  taughtSubjects ClassSubject[]      @relation("AssignedTeacher")
+  sessions       AttendanceSession[] @relation("SessionTeacher")
+  enrollments    Enrollment[]        @relation("StudentEnrollments")
+  attendance     AttendanceRecord[]  @relation("StudentAttendance")
+
+  studentDevices  Device[] @relation("StudentDevices")
+  devicesReviewed Device[] @relation("DeviceReviewer")
+
+  auditLogs AuditLog[] @relation("AuditActor")
+
+  @@unique([id, institutionId])
+  @@unique([institutionId, email])
+  @@index([institutionId, role])
+  @@map("profiles")
+}
+
+// --------------------------------------------------
+// 3. DEPARTMENTS
+// Primarily used by universities.
+// --------------------------------------------------
+
+model Department {
+  id            String   @id @default(uuid()) @db.Uuid
+  institutionId String   @map("institution_id") @db.Uuid
+  name          String
+  code          String
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+
+  classes        SchoolClass[]
+  teacherDetails TeacherDetail[]
+
+  @@unique([id, institutionId])
+  @@unique([institutionId, code])
+  @@index([institutionId, isActive])
+  @@map("departments")
+}
+
+// --------------------------------------------------
+// 4. STUDENT DETAILS
+// One-to-one extension of Profile.
+// --------------------------------------------------
+
+model StudentDetail {
+  profileId     String   @id @map("profile_id") @db.Uuid
+  institutionId String   @map("institution_id") @db.Uuid
+  studentNumber String   @map("student_number")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  profile Profile @relation(fields: [profileId, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  @@unique([institutionId, studentNumber])
+  @@unique([profileId, institutionId])
+  @@map("student_details")
+}
+
+// --------------------------------------------------
+// 5. TEACHER DETAILS
+// One-to-one extension of Profile.
+// --------------------------------------------------
+
+model TeacherDetail {
+  profileId     String   @id @map("profile_id") @db.Uuid
+  institutionId String   @map("institution_id") @db.Uuid
+  departmentId  String?  @map("department_id") @db.Uuid
+  employeeId    String   @map("employee_id")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  profile Profile @relation(fields: [profileId, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  department Department? @relation(fields: [departmentId, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  @@unique([institutionId, employeeId])
+  @@unique([profileId, institutionId])
+  @@index([institutionId, departmentId])
+  @@map("teacher_details")
+}
+
+// --------------------------------------------------
+// 6. CLASSES / BATCHES
+// Examples: Grade 8, B.Sc. CS, Division A.
+// --------------------------------------------------
+
+model SchoolClass {
+  id            String   @id @default(uuid()) @db.Uuid
+  institutionId String   @map("institution_id") @db.Uuid
+  departmentId  String?  @map("department_id") @db.Uuid
+  name          String
+  division      String?
+  academicYear  String   @map("academic_year")
+  semester      Int?
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+
+  department Department? @relation(fields: [departmentId, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  subjects    ClassSubject[]
+  enrollments Enrollment[]
+
+  @@unique([id, institutionId])
+  @@unique([institutionId, name, division, academicYear, semester])
+  @@index([institutionId, academicYear, isActive])
+  @@map("classes")
+}
+
+// --------------------------------------------------
+// 7. SUBJECTS
+// --------------------------------------------------
+
+model Subject {
+  id            String   @id @default(uuid()) @db.Uuid
+  institutionId String   @map("institution_id") @db.Uuid
+  name          String
+  code          String
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+
+  classes ClassSubject[]
+
+  @@unique([id, institutionId])
+  @@unique([institutionId, code])
+  @@index([institutionId, isActive])
+  @@map("subjects")
+}
+
+// --------------------------------------------------
+// 8. CLASS-SUBJECT-TEACHER ASSIGNMENTS
+// --------------------------------------------------
+
+model ClassSubject {
+  id            String   @id @default(uuid()) @db.Uuid
+  institutionId String   @map("institution_id") @db.Uuid
+  classId       String   @map("class_id") @db.Uuid
+  subjectId     String   @map("subject_id") @db.Uuid
+  teacherId     String   @map("teacher_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+
+  schoolClass SchoolClass @relation(fields: [classId, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  subject Subject @relation(fields: [subjectId, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  teacher Profile @relation("AssignedTeacher", fields: [teacherId, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  sessions       AttendanceSession[]
+  timetableSlots TimetableSlot[]
+
+  @@unique([id, institutionId])
+  @@unique([id, institutionId, teacherId])
+  @@unique([classId, subjectId, teacherId])
+  @@index([institutionId, teacherId])
+  @@map("class_subjects")
+}
+
+// --------------------------------------------------
+// 9. ENROLLMENTS
+// --------------------------------------------------
+
+model Enrollment {
+  id            String   @id @default(uuid()) @db.Uuid
+  institutionId String   @map("institution_id") @db.Uuid
+  studentId     String   @map("student_id") @db.Uuid
+  classId       String   @map("class_id") @db.Uuid
+  enrolledAt    DateTime @default(now()) @map("enrolled_at") @db.Timestamptz(3)
+  isActive      Boolean  @default(true) @map("is_active")
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+
+  student Profile @relation("StudentEnrollments", fields: [studentId, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  schoolClass SchoolClass @relation(fields: [classId, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  @@unique([studentId, classId])
+  @@index([institutionId, classId, isActive])
+  @@index([studentId])
+  @@map("enrollments")
+}
+
+// --------------------------------------------------
+// 10. DEVICES
+// One active device per student.
+// Replacement requests require admin approval.
+// --------------------------------------------------
+
+model Device {
+  id               String       @id @default(uuid()) @db.Uuid
+  institutionId    String       @map("institution_id") @db.Uuid
+  profileId        String       @map("profile_id") @db.Uuid
+  deviceIdentifier String       @map("device_identifier")
+  publicKey        String?      @map("public_key")
+  status           DeviceStatus @default(PENDING)
+  registeredAt     DateTime     @default(now()) @map("registered_at") @db.Timestamptz(3)
+  reviewedBy       String?      @map("reviewed_by") @db.Uuid
+  reviewedAt       DateTime?    @map("reviewed_at") @db.Timestamptz(3)
+  rejectionReason  String?      @map("rejection_reason")
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+
+  student Profile @relation("StudentDevices", fields: [profileId, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  reviewer Profile? @relation("DeviceReviewer", fields: [reviewedBy, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  attendanceRecords AttendanceRecord[]
+
+  @@unique([id, institutionId])
+  @@unique([institutionId, deviceIdentifier])
+  @@index([institutionId, profileId, status])
+  @@index([institutionId, status, registeredAt])
+  @@map("devices")
+}
+
+// --------------------------------------------------
+// 11. TIMETABLE SLOTS
+// weekday: 1 = Monday ... 7 = Sunday.
+// --------------------------------------------------
+
+model TimetableSlot {
+  id             String   @id @default(uuid()) @db.Uuid
+  institutionId  String   @map("institution_id") @db.Uuid
+  classSubjectId String   @map("class_subject_id") @db.Uuid
+  weekday        Int
+  startTime      DateTime @map("start_time") @db.Time(0)
+  endTime        DateTime @map("end_time") @db.Time(0)
+  room           String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+
+  classSubject ClassSubject @relation(fields: [classSubjectId, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  sessions AttendanceSession[]
+
+  @@unique([id, institutionId])
+  @@index([institutionId, weekday, isActive])
+  @@index([classSubjectId, weekday])
+  @@map("timetable_slots")
+}
+
+// --------------------------------------------------
+// 12. ATTENDANCE SESSIONS
+// BLE token seed must never be exposed to students.
+// Encrypt it at the application layer.
+// --------------------------------------------------
+
+model AttendanceSession {
+  id              String        @id @default(uuid()) @db.Uuid
+  institutionId   String        @map("institution_id") @db.Uuid
+  classSubjectId  String        @map("class_subject_id") @db.Uuid
+  teacherId       String        @map("teacher_id") @db.Uuid
+  timetableSlotId String?       @map("timetable_slot_id") @db.Uuid
+  sessionCode     String        @map("session_code")
+  bleTokenSeed    String        @map("ble_token_seed")
+  status          SessionStatus @default(ACTIVE)
+  startsAt        DateTime      @default(now()) @map("starts_at") @db.Timestamptz(3)
+  expiresAt       DateTime      @map("expires_at") @db.Timestamptz(3)
+  endedAt         DateTime?     @map("ended_at") @db.Timestamptz(3)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+
+  classSubject ClassSubject @relation(fields: [classSubjectId, institutionId, teacherId], references: [id, institutionId, teacherId], onDelete: Restrict)
+
+  teacher Profile @relation("SessionTeacher", fields: [teacherId, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  timetableSlot TimetableSlot? @relation(fields: [timetableSlotId, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  records AttendanceRecord[]
+
+  @@unique([id, institutionId])
+  @@unique([institutionId, sessionCode])
+  @@index([institutionId, status, expiresAt])
+  @@index([teacherId, startsAt])
+  @@map("attendance_sessions")
+}
+
+// --------------------------------------------------
+// 13. ATTENDANCE RECORDS
+// One record per student per session.
+// --------------------------------------------------
+
+model AttendanceRecord {
+  id            String           @id @default(uuid()) @db.Uuid
+  institutionId String           @map("institution_id") @db.Uuid
+  sessionId     String           @map("session_id") @db.Uuid
+  studentId     String           @map("student_id") @db.Uuid
+  deviceId      String?          @map("device_id") @db.Uuid
+  status        AttendanceStatus @default(PRESENT)
+  method        AttendanceMethod @default(BLE)
+  markedAt      DateTime         @default(now()) @map("marked_at") @db.Timestamptz(3)
+  rssi          Int?             @db.SmallInt
+  notes         String?
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+
+  session AttendanceSession @relation(fields: [sessionId, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  student Profile @relation("StudentAttendance", fields: [studentId, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  device Device? @relation(fields: [deviceId, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  @@unique([sessionId, studentId])
+  @@index([institutionId, studentId, markedAt])
+  @@index([institutionId, sessionId, status])
+  @@map("attendance_records")
+}
+
+// --------------------------------------------------
+// 14. AUDIT LOGS
+// --------------------------------------------------
+
+model AuditLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  institutionId String   @map("institution_id") @db.Uuid
+  actorId       String?  @map("actor_id") @db.Uuid
+  action        String
+  entityType    String   @map("entity_type")
+  entityId      String?  @map("entity_id") @db.Uuid
+  details       Json?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+
+  actor Profile? @relation("AuditActor", fields: [actorId, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  @@index([institutionId, createdAt])
+  @@index([institutionId, entityType, entityId])
+  @@map("audit_logs")
+}

@@ -15,9 +15,9 @@ node_modules/
 npm-debug.log*
 
 # Build and test output
-/dist/
-/build/
-/coverage/
+dist/
+build/
+coverage/
 
 # Editor and operating system files
 .vscode/
