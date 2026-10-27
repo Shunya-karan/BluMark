@@ -1,32 +1,16 @@
-
-import supabase from "../config/supabase.js";
+import { resolveAuthenticatedContext } from "../modules/auth/auth.service.js";
 import AppError from "../utils/AppError.js";
 import catchAsync from "../utils/catchAsync.js";
 
-const authenticate = catchAsync(async (req, res, next) => {
-  const authorization = req.headers.authorization;
+const authenticate = catchAsync(async (req, _res, next) => {
+  const match = /^Bearer\s+([^\s]+)$/i.exec(req.get("authorization") ?? "");
+  if (!match) throw new AppError("Authentication required", 401);
 
-  if (!authorization?.startsWith("Bearer ")) {
-    throw new AppError("Authentication token required", 401);
-  }
-
-  const token = authorization.slice(7).trim();
-
-  if (!token) {
-    throw new AppError("Authentication token required", 401);
-  }
-
-  const { data, error } = await supabase.auth.getUser(token);
-
-  if (error || !data.user) {
-    throw new AppError("Invalid or expired authentication token", 401);
-  }
-
-  req.user = {
-    id: data.user.id,
-    email: data.user.email,
-  };
-
+  const context = await resolveAuthenticatedContext(match[1]);
+  req.authUser = context.authUser;
+  req.accessToken = match[1];
+  req.user = context.user;
+  req.institutionId = context.institutionId;
   next();
 });
 
