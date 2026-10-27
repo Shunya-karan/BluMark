@@ -40,7 +40,7 @@ export const authOpenApi = {
     title: "Blu-Mark Authentication API",
     version: "1.0.0",
     description:
-      "Authentication APIs for Blu-Mark using Supabase Auth.",
+      "Blu-Mark JWT authentication with Argon2id credentials and PostgreSQL-backed sessions.",
   },
 
   servers: [
@@ -100,6 +100,24 @@ export const authOpenApi = {
           401: jsonResponse("Invalid refresh token", "ApiError"),
           400: jsonResponse("Invalid request", "ApiError"),
         },
+      },
+    },
+
+    "/api/v1/auth/activation/request": {
+      post: {
+        tags: ["Authentication"],
+        summary: "Request an account activation link",
+        requestBody: jsonBody("EmailRequest"),
+        responses: { 200: jsonResponse("Generic activation response"), 429: jsonResponse("Too many requests", "ApiError") },
+      },
+    },
+
+    "/api/v1/auth/activation/complete": {
+      post: {
+        tags: ["Authentication"],
+        summary: "Activate an account and set its first password",
+        requestBody: jsonBody("ActivationCompleteRequest"),
+        responses: { 200: jsonResponse("Account activated"), 400: jsonResponse("Invalid or expired token", "ApiError") },
       },
     },
 
@@ -173,6 +191,17 @@ export const authOpenApi = {
           ...protectedErrors,
           409: jsonResponse("Email or identifier already exists", "ApiError"),
         },
+      },
+    },
+
+    "/api/v1/auth/provision-users": {
+      post: {
+        tags: ["Authentication"],
+        summary: "Provision up to 100 teacher or student accounts",
+        description: "Requires an institution administrator. Creates inactive accounts; users activate through the emailed one-time activation flow.",
+        security: [{ bearerAuth: [] }],
+        requestBody: jsonBody("ProvisionBulkRequest"),
+        responses: { 200: jsonResponse("Per-record provisioning results"), ...protectedErrors },
       },
     },
   },
@@ -289,9 +318,9 @@ export const authOpenApi = {
 
       ResetPasswordRequest: {
         type: "object",
-        required: ["tokenHash", "newPassword"],
+        required: ["token", "newPassword"],
         properties: {
-          tokenHash: { type: "string", writeOnly: true },
+          token: { type: "string", writeOnly: true },
           newPassword: {
             type: "string",
             minLength: 12,
@@ -316,6 +345,24 @@ export const authOpenApi = {
           departmentId: { type: "string", format: "uuid" },
           phone: { type: "string" },
         },
+      },
+      EmailRequest: {
+        type: "object",
+        required: ["email"],
+        properties: { email: { type: "string", format: "email" } },
+      },
+      ActivationCompleteRequest: {
+        type: "object",
+        required: ["token", "password"],
+        properties: {
+          token: { type: "string", writeOnly: true },
+          password: { type: "string", minLength: 12, maxLength: 128, writeOnly: true },
+        },
+      },
+      ProvisionBulkRequest: {
+        type: "object",
+        required: ["users"],
+        properties: { users: { type: "array", minItems: 1, maxItems: 100, items: ref("ProvisionUserRequest") } },
       },
     },
   },

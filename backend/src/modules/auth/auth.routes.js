@@ -5,33 +5,30 @@ import authorizeRoles from "../../middleware/authorize.js";
 import validate from "../../middleware/validate.js";
 import * as controller from "./auth.controller.js";
 import {
-  loginSchema,
-  refreshSchema,
-  provisionSchema,
+  activationCompleteSchema,
+  activationRequestSchema,
   changePasswordSchema,
   forgotPasswordSchema,
+  loginSchema,
+  provisionBulkSchema,
+  provisionSchema,
+  refreshSchema,
   resetPasswordSchema,
 } from "./auth.validation.js";
+
 const router = Router();
-const authLimiter = rateLimit({
+const limiter = (limit) => rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit,
   standardHeaders: "draft-8",
   legacyHeaders: false,
-  message: {
-    success: false,
-    message: "Too many authentication requests. Try again later.",
-  },
+  message: { success: false, message: "Too many authentication requests. Try again later." },
 });
-router.post("/login", authLimiter, validate(loginSchema), controller.login);
-router.get("/me", authenticate, controller.me);
-router.post(
-  "/refresh",
-  authLimiter,
-  validate(refreshSchema),
-  controller.refresh,
-);
+
+router.post("/login", limiter(10), validate(loginSchema), controller.login);
+router.post("/refresh", limiter(30), validate(refreshSchema), controller.refresh);
 router.post("/logout", authenticate, controller.logout);
+router.get("/me", authenticate, controller.me);
 router.post(
   "/provision-user",
   authenticate,
@@ -40,21 +37,22 @@ router.post(
   controller.provision,
 );
 router.post(
+  "/provision-users",
+  authenticate,
+  authorizeRoles("INSTITUTION_ADMIN"),
+  validate(provisionBulkSchema),
+  controller.provisionBulk,
+);
+router.post(
   "/change-password",
   authenticate,
   validate(changePasswordSchema),
   controller.changePassword,
 );
-router.post(
-  "/forgot-password",
-  authLimiter,
-  validate(forgotPasswordSchema),
-  controller.forgotPassword,
-);
-router.post(
-  "/reset-password",
-  authLimiter,
-  validate(resetPasswordSchema),
-  controller.resetPassword,
-);
+router.post("/activation/request", limiter(5), validate(activationRequestSchema), controller.requestActivation);
+router.post("/activation/complete", limiter(10), validate(activationCompleteSchema), controller.activate);
+router.post("/forgot-password", limiter(5), validate(forgotPasswordSchema), controller.forgotPassword);
+router.post("/reset-password", limiter(10), validate(resetPasswordSchema), controller.resetPassword);
+
 export default router;
+

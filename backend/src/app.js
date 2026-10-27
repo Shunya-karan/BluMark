@@ -12,9 +12,17 @@ import errorHandler from "./middleware/error-handler.js";
 
 const app = express();
 const allowedOrigins = process.env.FRONTEND_URL ? getFrontendOrigins() : [];
+app.set("trust proxy", Number(process.env.TRUST_PROXY_HOPS || 0));
 app.use(helmet());
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === "production" && !req.secure) {
+    return res.status(426).json({ success: false, message: "HTTPS is required" });
+  }
+  next();
+});
 app.use(
   cors({
+    credentials: true,
     origin(origin, callback) {
       if (!origin || allowedOrigins.includes(origin))
         return callback(null, true);

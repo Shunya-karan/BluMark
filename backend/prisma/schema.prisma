@@ -92,8 +92,7 @@ model Institution {
 
 // --------------------------------------------------
 // 2. PROFILES
-// IDs match Supabase Auth user UUIDs.
-// Passwords are managed by Supabase Auth.
+// Existing IDs remain stable so application relationships survive authentication migration.
 // --------------------------------------------------
 
 model Profile {
@@ -122,10 +121,86 @@ model Profile {
 
   auditLogs AuditLog[] @relation("AuditActor")
 
+  credential          UserCredential?
+  authSessions        AuthSession[]
+  passwordResetTokens PasswordResetToken[]
+  activationTokens    AccountActivationToken[]
+
   @@unique([id, institutionId])
   @@unique([institutionId, email])
   @@index([institutionId, role])
   @@map("profiles")
+}
+
+model UserCredential {
+  profileId          String    @id @map("profile_id") @db.Uuid
+  emailNormalized    String    @unique @map("email_normalized") @db.VarChar(254)
+  passwordHash       String?   @map("password_hash")
+  passwordChangedAt  DateTime? @map("password_changed_at") @db.Timestamptz(3)
+  mustChangePassword Boolean   @default(false) @map("must_change_password")
+  activatedAt        DateTime? @map("activated_at") @db.Timestamptz(3)
+  failedLoginCount   Int       @default(0) @map("failed_login_count")
+  lockedUntil        DateTime? @map("locked_until") @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("user_credentials")
+}
+
+// Each token rotation is retained so reuse revokes the complete family.
+model AuthSession {
+  id                String    @id @default(uuid()) @db.Uuid
+  familyId          String    @map("family_id") @db.Uuid
+  profileId         String    @map("profile_id") @db.Uuid
+  refreshTokenHash  String    @unique @map("refresh_token_hash") @db.VarChar(64)
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz(3)
+  absoluteExpiresAt DateTime  @map("absolute_expires_at") @db.Timestamptz(3)
+  lastUsedAt        DateTime? @map("last_used_at") @db.Timestamptz(3)
+  rotatedAt         DateTime? @map("rotated_at") @db.Timestamptz(3)
+  revokedAt         DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revocationReason  String?   @map("revocation_reason") @db.VarChar(64)
+  ipAddress         String?   @map("ip_address") @db.VarChar(64)
+  userAgent         String?   @map("user_agent") @db.VarChar(512)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([familyId, revokedAt])
+  @@index([profileId, revokedAt])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  profileId String    @map("profile_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.VarChar(64)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model AccountActivationToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  profileId String    @map("profile_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.VarChar(64)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, expiresAt])
+  @@map("account_activation_tokens")
 }
 
 // --------------------------------------------------

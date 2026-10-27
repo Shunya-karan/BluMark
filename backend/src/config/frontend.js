@@ -25,6 +25,8 @@ export function getFrontendOrigins() {
       throw new Error(
         "FRONTEND_URL must contain only http(s) origins, without credentials, paths, queries, or fragments.",
       );
+    if (process.env.NODE_ENV === "production" && url.protocol !== "https:")
+      throw new Error("FRONTEND_URL must use HTTPS in production.");
     return url.origin;
   });
 }
