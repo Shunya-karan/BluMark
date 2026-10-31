@@ -1,7 +1,9 @@
 import prisma from './src/config/prisma.js';
 
 async function main() {
-  const STUDENT_ID = "4154126a-e00d-469f-a028-898a4a68597d";
+  const studentProfile = await prisma.profile.findFirst({ where: { role: 'STUDENT' } });
+  if (!studentProfile) throw new Error("No student found");
+  const STUDENT_ID = studentProfile.id;
 
   const student = await prisma.profile.findUnique({
     where: { id: STUDENT_ID },

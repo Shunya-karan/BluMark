@@ -1,25 +1,68 @@
 import prisma from './src/config/prisma.js';
 
-const STUDENT_ID = "4154126a-e00d-469f-a028-898a4a68597d";
-const INSTITUTION_ID = "da49351c-116b-4be6-9eed-2d6cfd55fba9";
-const CLASS_ID = "02914ea4-3050-4e18-b679-a2eb1cb59332";
-
-const TEACHER_1 = "0eb014d4-b1f1-4378-a437-712a33250c28"; // Demo Teacher One
-const TEACHER_2 = "7bf8e4ee-0af3-42b0-80e6-d86f2d13eb8f"; // Demo Teacher Two
-
-const SUBJECTS_DATA = [
-  { name: "Database Management Systems", code: "CS-DBMS", teacherId: TEACHER_1 },
-  { name: "Data Structures and Algorithms", code: "CS-DSA", teacherId: TEACHER_1 },
-  { name: "Operating Systems", code: "CS-OS", teacherId: TEACHER_2 },
-  { name: "Computer Networks", code: "CS-CN", teacherId: TEACHER_2 },
-  { name: "Web Development", code: "CS-WEB", teacherId: TEACHER_1 },
-  { name: "Software Engineering", code: "CS-SE", teacherId: TEACHER_2 }
-];
-
 async function main() {
   console.log("Starting data population...");
 
-  // 1. Create or ensure Subjects exist
+  // 1. Find the single student
+  const student = await prisma.profile.findFirst({ where: { role: 'STUDENT' } });
+  if (!student) throw new Error("No student found");
+  const STUDENT_ID = student.id;
+  const INSTITUTION_ID = student.institutionId;
+
+  // 2. Find the single teacher
+  let teacher = await prisma.profile.findFirst({ where: { role: 'TEACHER', institutionId: INSTITUTION_ID } });
+  if (!teacher) {
+    throw new Error("No teacher found in institution");
+  }
+  const TEACHER_1 = teacher.id;
+
+  // Let's create a second teacher so we can assign different subjects to different teachers.
+  let teacher2 = await prisma.profile.findFirst({ where: { email: 'teacher2@gmail.com' } });
+  if (!teacher2) {
+    const { randomUUID } = await import("node:crypto");
+    teacher2 = await prisma.profile.create({
+      data: {
+        id: randomUUID(),
+        institutionId: INSTITUTION_ID,
+        fullName: "Demo Teacher 2",
+        email: "teacher2@gmail.com",
+        role: "TEACHER",
+        isActive: true,
+        teacherDetails: {
+          create: {
+            employeeId: "EMP-2026-002"
+          }
+        },
+        credential: {
+          create: {
+            emailNormalized: "teacher2@gmail.com",
+            passwordHash: "dummy",
+            mustChangePassword: true,
+            activatedAt: new Date(),
+          }
+        }
+      }
+    });
+  }
+  const TEACHER_2 = teacher2.id;
+
+  // 3. Find the enrolled class for the student
+  const enrollment = await prisma.enrollment.findFirst({
+    where: { studentId: STUDENT_ID, institutionId: INSTITUTION_ID, isActive: true }
+  });
+  if (!enrollment) throw new Error("Student has no active enrollments");
+  const CLASS_ID = enrollment.classId;
+
+  const SUBJECTS_DATA = [
+    { name: "Database Management Systems", code: "CS-DBMS", teacherId: TEACHER_1 },
+    { name: "Data Structures and Algorithms", code: "CS-DSA", teacherId: TEACHER_1 },
+    { name: "Operating Systems", code: "CS-OS", teacherId: TEACHER_2 },
+    { name: "Computer Networks", code: "CS-CN", teacherId: TEACHER_2 },
+    { name: "Web Development", code: "CS-WEB", teacherId: TEACHER_1 },
+    { name: "Software Engineering", code: "CS-SE", teacherId: TEACHER_2 }
+  ];
+
+  // 4. Create or ensure Subjects exist
   const subjects = {};
   for (const s of SUBJECTS_DATA) {
     const subject = await prisma.subject.upsert({
@@ -30,10 +73,11 @@ async function main() {
     subjects[s.code] = subject;
   }
 
-  // 2. Map Subjects to Class (ClassSubject)
+  // 5. Map Subjects to Class (ClassSubject)
   const classSubjects = {};
   for (const s of SUBJECTS_DATA) {
     const subjectId = subjects[s.code].id;
+    // Prisma upsert needs unique identifier. For class_subjects it's id_institutionId or id_institutionId_teacherId etc, or classId_subjectId_teacherId
     const cs = await prisma.classSubject.upsert({
       where: { classId_subjectId_teacherId: { classId: CLASS_ID, subjectId: subjectId, teacherId: s.teacherId } },
       update: {},
@@ -42,7 +86,7 @@ async function main() {
     classSubjects[s.code] = cs;
   }
 
-  // 3. Timetable Slots
+  // 6. Timetable Slots
   const TIMETABLE_DATA = [
     // Monday (weekday 1)
     { weekday: 1, startTime: "09:00:00", endTime: "10:00:00", code: "CS-DBMS" },
@@ -64,12 +108,9 @@ async function main() {
 
   for (const t of TIMETABLE_DATA) {
     const csId = classSubjects[t.code].id;
-    // Use an arbitrary date just to encode the time part correctly as a DateTime for Prisma
-    // Usually prisma uses DateTime but stores as Time in DB for TimetableSlot
     const startDt = new Date(`1970-01-01T${t.startTime}Z`);
     const endDt = new Date(`1970-01-01T${t.endTime}Z`);
 
-    // We can just findFirst and create since there's no unique constraint that matches easily
     const existing = await prisma.timetableSlot.findFirst({
       where: { classSubjectId: csId, weekday: t.weekday, startTime: startDt }
     });
@@ -87,12 +128,11 @@ async function main() {
     }
   }
 
-  // Reload timetable to use for attendance sessions
   const fullTimetable = await prisma.timetableSlot.findMany({
     where: { classSubjectId: { in: Object.values(classSubjects).map(c => c.id) } }
   });
 
-  // 4. Create Attendance Sessions and Records for the past 30 days
+  // 7. Create Attendance Sessions and Records for the past 30 days
   const today = new Date();
   today.setHours(0,0,0,0);
 
@@ -105,11 +145,9 @@ async function main() {
     date.setDate(date.getDate() - i);
     const weekday = date.getDay() || 7; // 1 = Monday, 7 = Sunday
 
-    // Find timetable slots for this weekday
     const daySlots = fullTimetable.filter(slot => slot.weekday === weekday);
 
     for (const slot of daySlots) {
-      // Find classSubject for teacherId
       const cs = Object.values(classSubjects).find(c => c.id === slot.classSubjectId);
 
       const start = new Date(date);
@@ -119,7 +157,6 @@ async function main() {
 
       const sessionCode = `SESS-${cs.id.substring(0,6)}-${start.getTime()}`;
 
-      // Upsert Session
       const session = await prisma.attendanceSession.upsert({
         where: { institutionId_sessionCode: { institutionId: INSTITUTION_ID, sessionCode: sessionCode } },
         update: {},
@@ -138,14 +175,11 @@ async function main() {
         }
       });
 
-      // Upsert AttendanceRecord
-      // Let's decide random attendance: 85% Present, 10% Late, 5% Absent
       const rand = Math.random();
       let status = "PRESENT";
       if (rand > 0.95) status = "ABSENT";
       else if (rand > 0.85) status = "LATE";
 
-      // Override status for upsert if it doesn't exist
       const existingRecord = await prisma.attendanceRecord.findUnique({
         where: { sessionId_studentId: { sessionId: session.id, studentId: STUDENT_ID } }
       });
@@ -170,7 +204,7 @@ async function main() {
   }
   console.log(`Generated ${totalSessions} attendance records.`);
 
-  // 5. Study Materials
+  // 8. Study Materials
   const MATERIALS = [
     { title: "DBMS Unit 1 Notes", desc: "Introduction to RDBMS", code: "CS-DBMS" },
     { title: "Operating Systems Process Management", desc: "CPU Scheduling algorithms", code: "CS-OS" },
@@ -200,7 +234,7 @@ async function main() {
     }
   }
 
-  // 6. Notifications
+  // 9. Notifications
   const notificationsCount = await prisma.notification.count({
     where: { recipientId: STUDENT_ID }
   });
@@ -227,7 +261,7 @@ async function main() {
     });
   }
 
-  // 7. Device
+  // 10. Device
   const existingDevice = await prisma.device.findFirst({
     where: { profileId: STUDENT_ID }
   });

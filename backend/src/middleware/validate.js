@@ -14,7 +14,16 @@ const validate =
           })),
         ),
       );
-    req[source] = r.data;
+    if (source === "query") {
+      Object.defineProperty(req, "query", {
+        value: r.data,
+        enumerable: true,
+        configurable: true,
+        writable: true
+      });
+    } else {
+      req[source] = r.data;
+    }
     next();
   };
 export default validate;

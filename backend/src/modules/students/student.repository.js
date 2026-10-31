@@ -50,8 +50,8 @@ export function findActiveEnrollments(studentId, institutionId) {
 export function findEligibleSessions({ institutionId, studentId, classIds, enrolledAfter, filters = {}, skip, take }) {
   const startsAt = {};
   if (enrolledAfter) startsAt.gte = enrolledAfter;
-  if (filters.from) startsAt.gte = filters.from;
-  if (filters.to) startsAt.lte = filters.to;
+  if (filters.from) startsAt.gte = new Date(filters.from);
+  if (filters.to) startsAt.lte = new Date(filters.to);
   return prisma.attendanceSession.findMany({
     where: {
       institutionId,
@@ -77,8 +77,8 @@ export function findEligibleSessions({ institutionId, studentId, classIds, enrol
 export function countEligibleSessions({ institutionId, classIds, enrolledAfter, filters = {} }) {
   const startsAt = {};
   if (enrolledAfter) startsAt.gte = enrolledAfter;
-  if (filters.from) startsAt.gte = filters.from;
-  if (filters.to) startsAt.lte = filters.to;
+  if (filters.from) startsAt.gte = new Date(filters.from);
+  if (filters.to) startsAt.lte = new Date(filters.to);
   return prisma.attendanceSession.count({
     where: {
       institutionId,
