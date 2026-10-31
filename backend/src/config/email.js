@@ -70,3 +70,51 @@ export function sendPasswordResetEmail(email, rawToken) {
   });
 }
 
+export async function sendProvisionedUserCredentials(email, { fullName, temporaryPassword }) {
+  const transport = createEmailTransport();
+  const frontend = process.env.FRONTEND_URL?.split(",")[0]?.trim();
+  if (!frontend) throw new Error("FRONTEND_URL must be set for authentication emails.");
+  const url = new URL("/auth/login", frontend);
+
+  const text = `Hello ${fullName},
+
+Your Blu-Mark account has been successfully created by your institution administrator.
+
+Your login credentials are:
+
+Email: ${email}
+
+Temporary Password: ${temporaryPassword}
+
+Login URL: ${url.toString()}
+
+For security reasons, you must change your temporary password immediately after your first login.
+
+Please do not share your credentials with anyone.
+
+Regards,
+Blu-Mark Team`;
+
+  const html = `
+    <p>Hello ${fullName},</p>
+    <p>Your Blu-Mark account has been successfully created by your institution administrator.</p>
+    <p>Your login credentials are:</p>
+    <ul>
+      <li><strong>Email:</strong> ${email}</li>
+      <li><strong>Temporary Password:</strong> ${temporaryPassword}</li>
+    </ul>
+    <p><a href="${url.toString()}">Login URL</a></p>
+    <p>For security reasons, you must change your temporary password immediately after your first login.</p>
+    <p>Please do not share your credentials with anyone.</p>
+    <p>Regards,<br/>Blu-Mark Team</p>
+  `;
+
+  await transport.sendMail({
+    from: process.env.SMTP_FROM,
+    to: email,
+    subject: "Your Blu-Mark Account Has Been Created",
+    text,
+    html,
+  });
+}
+

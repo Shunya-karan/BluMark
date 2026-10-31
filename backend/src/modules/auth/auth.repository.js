@@ -58,12 +58,12 @@ export function countProfilesInInstitution(institutionId) {
   return prisma.profile.count({ where: { institutionId } });
 }
 
-export function createProfileWithCredential({ profileId, institutionId, actorId, input, emailNormalized }) {
+export function createProfileWithCredential({ profileId, institutionId, actorId, input, emailNormalized, passwordHash, activatedAt }) {
   return prisma.$transaction(async (tx) => {
     const profile = await tx.profile.create({
       data: {
         id: profileId, institutionId, fullName: input.fullName, email: emailNormalized,
-        phone: input.phone || null, role: input.role, isActive: false,
+        phone: input.phone || null, role: input.role, isActive: true,
       },
     });
     if (input.role === "TEACHER") {
@@ -78,7 +78,7 @@ export function createProfileWithCredential({ profileId, institutionId, actorId,
       throw new Error("Unsupported provisioned role.");
     }
     await tx.userCredential.create({
-      data: { profileId, emailNormalized, mustChangePassword: true },
+      data: { profileId, emailNormalized, passwordHash, mustChangePassword: true, activatedAt, passwordChangedAt: null },
     });
     await tx.auditLog.create({
       data: {

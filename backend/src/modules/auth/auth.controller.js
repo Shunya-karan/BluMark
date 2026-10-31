@@ -56,6 +56,10 @@ export const provisionBulk = catchAsync(async (req, res) =>
   sendResponse(res, 200, "Provisioning batch processed", await service.provisionUsers(req.user, req.body.users)),
 );
 
+export const resendCredentials = catchAsync(async (req, res) =>
+  sendResponse(res, 200, "Credentials sent", await service.resendCredentials(req.user, req.params.profileId)),
+);
+
 export const changePassword = catchAsync(async (req, res) =>
   sendResponse(res, 200, "Password changed; sign in again", await service.changePassword(
     req.user.id, req.body.currentPassword, req.body.newPassword,

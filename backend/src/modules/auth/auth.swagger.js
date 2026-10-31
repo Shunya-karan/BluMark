@@ -198,10 +198,28 @@ export const authOpenApi = {
       post: {
         tags: ["Authentication"],
         summary: "Provision up to 100 teacher or student accounts",
-        description: "Requires an institution administrator. Creates inactive accounts; users activate through the emailed one-time activation flow.",
+        description: "Requires an institution administrator. Creates inactive accounts; users receive a temporary password via email.",
         security: [{ bearerAuth: [] }],
         requestBody: jsonBody("ProvisionBulkRequest"),
         responses: { 200: jsonResponse("Per-record provisioning results"), ...protectedErrors },
+      },
+    },
+
+    "/api/v1/auth/provision-user/{profileId}/resend-credentials": {
+      post: {
+        tags: ["Authentication"],
+        summary: "Resend temporary credentials",
+        description: "Requires institution administrator authorization. Resends the temporary password to a provisioned user who hasn't changed it yet.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "profileId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: { 200: jsonResponse("Credentials sent"), ...protectedErrors },
       },
     },
   },

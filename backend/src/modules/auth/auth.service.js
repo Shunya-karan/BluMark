@@ -1,5 +1,4 @@
-import { randomBytes, randomUUID, createHash } from "node:crypto";
-import argon2 from "argon2";
+import { randomUUID } from "node:crypto";
 import {
   changePassword as updatePassword,
   clearFailedLogin,
@@ -22,13 +21,14 @@ import {
 } from "./auth.repository.js";
 import { sanitizeProfile } from "./auth.mapper.js";
 import { getAccessTokenTtl, signAccessToken, verifyAccessToken } from "../../config/jwt.js";
-import { assertEmailConfigured, sendActivationEmail, sendPasswordResetEmail } from "../../config/email.js";
+import { assertEmailConfigured, sendActivationEmail, sendPasswordResetEmail, sendProvisionedUserCredentials } from "../../config/email.js";
 import { provisionUserSchema } from "./auth.validation.js";
 import AppError from "../../utils/AppError.js";
 
-const PASSWORD_OPTIONS = { type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 };
-const DUMMY_HASH = await argon2.hash(randomBytes(32), PASSWORD_OPTIONS);
-const ALLOWED_ROLES = new Set(["INSTITUTION_ADMIN", "TEACHER", "STUDENT"]);
+// Import reusable auth utilities
+import { hashPassword, verifyPassword, validatePasswordLength, generateTemporaryPassword } from "../../utils/auth/password.util.js";
+import { generateSecureToken, hashToken, validateTokenFormat } from "../../utils/auth/token.util.js";
+
 const IDLE_SESSION_MS = 7 * 24 * 60 * 60 * 1000;
 const ABSOLUTE_SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_FAILED_LOGINS = 5;
@@ -37,22 +37,6 @@ const MAX_PROFILES_PER_INSTITUTION = Number(process.env.MAX_PROFILES_PER_INSTITU
 const MAX_PROVISION_BATCH = 100;
 
 export const normalizeEmail = (email) => email.trim().toLowerCase();
-const hashToken = (token) => createHash("sha256").update(token).digest("hex");
-const randomToken = () => randomBytes(32).toString("base64url");
-
-async function verifyPassword(hash, password) {
-  if (!hash) {
-    await argon2.verify(DUMMY_HASH, password).catch(() => false);
-    return false;
-  }
-  return argon2.verify(hash, password).catch(() => false);
-}
-
-function ensurePasswordLength(password) {
-  if (Buffer.byteLength(password, "utf8") < 12 || Buffer.byteLength(password, "utf8") > 128) {
-    throw new AppError("Password must contain 12 to 128 UTF-8 bytes", 422);
-  }
-}
 
 function authFailure() {
   return new AppError("Invalid email or password", 401);
@@ -81,7 +65,7 @@ function tokenResponse(accessToken, refreshToken, profile) {
 async function createSession(profile, metadata = {}) {
   const now = new Date();
   const familyId = randomUUID();
-  const refreshToken = randomToken();
+  const refreshToken = generateSecureToken();
   const absoluteExpiresAt = new Date(now.getTime() + ABSOLUTE_SESSION_MS);
   const expiresAt = new Date(Math.min(now.getTime() + IDLE_SESSION_MS, absoluteExpiresAt.getTime()));
   await createAuthSession({
@@ -153,12 +137,10 @@ export async function getCurrentUser(id) {
 }
 
 export async function refreshSession(refreshToken, metadata = {}) {
-  if (typeof refreshToken !== "string" || !/^[A-Za-z0-9_-]{40,100}$/.test(refreshToken)) {
-    throw new AppError("Invalid or expired refresh token", 401);
-  }
+  validateTokenFormat(refreshToken);
 
   const now = new Date();
-  const nextToken = randomToken();
+  const nextToken = generateSecureToken();
   const idleExpiresAt = new Date(now.getTime() + IDLE_SESSION_MS);
   const result = await rotateRefreshToken({
     tokenHash: hashToken(refreshToken),
@@ -171,6 +153,11 @@ export async function refreshSession(refreshToken, metadata = {}) {
 
   if (result.kind !== "ok") {
     throw new AppError("Invalid or expired refresh token; sign in again", 401);
+  }
+
+  // Prevent refresh token from bypassing forced password change
+  if (result.profile.credential?.mustChangePassword) {
+    throw new AppError("You must change your temporary password before continuing", 403);
   }
 
   const accessToken = await signAccessToken({
@@ -188,15 +175,24 @@ export async function logout(sessionId) {
 }
 
 export async function changePassword(profileId, currentPassword, newPassword) {
-  ensurePasswordLength(newPassword);
+  validatePasswordLength(newPassword);
+
   const credential = await findCredentialByProfileId(profileId);
-  if (!credential?.passwordHash || !(await verifyPassword(credential.passwordHash, currentPassword))) {
-    throw new AppError("Current password is incorrect", 401);
+  const isForcedChange = credential?.mustChangePassword;
+
+  // Verify current password only if it is NOT a forced first-login change.
+  // For forced change, they used their temporary password to login to this session.
+  if (!isForcedChange) {
+    if (!credential?.passwordHash || !(await verifyPassword(credential.passwordHash, currentPassword))) {
+      throw new AppError("Current password is incorrect", 401);
+    }
   }
+
   if (await verifyPassword(credential.passwordHash, newPassword)) {
     throw new AppError("New password must differ from the current password", 422);
   }
-  await updatePassword(profileId, await argon2.hash(newPassword, PASSWORD_OPTIONS), new Date());
+
+  await updatePassword(profileId, await hashPassword(newPassword), new Date());
   return { changed: true, sessionsRevoked: true };
 }
 
@@ -211,7 +207,7 @@ async function deliverLink(send, email, rawToken, event) {
 export async function requestActivation(email) {
   assertEmailConfigured();
   const normalizedEmail = normalizeEmail(email);
-  const rawToken = randomToken();
+  const rawToken = generateSecureToken();
   const profile = await createActivationRequest(
     normalizedEmail,
     hashToken(rawToken),
@@ -222,13 +218,12 @@ export async function requestActivation(email) {
 }
 
 export async function activateAccount(token, password) {
-  ensurePasswordLength(password);
-  if (typeof token !== "string" || !/^[A-Za-z0-9_-]{40,100}$/.test(token)) {
-    throw new AppError("Invalid or expired activation token", 400);
-  }
+  validatePasswordLength(password);
+  validateTokenFormat(token);
+
   const result = await consumeActivationToken(
     hashToken(token),
-    await argon2.hash(password, PASSWORD_OPTIONS),
+    await hashPassword(password),
     new Date(),
   );
   if (result.kind !== "ok") throw new AppError("Invalid or expired activation token", 400);
@@ -237,7 +232,7 @@ export async function activateAccount(token, password) {
 
 export async function forgotPassword(email) {
   assertEmailConfigured();
-  const rawToken = randomToken();
+  const rawToken = generateSecureToken();
   const credential = await createPasswordResetRequest(
     normalizeEmail(email),
     hashToken(rawToken),
@@ -250,13 +245,12 @@ export async function forgotPassword(email) {
 }
 
 export async function resetPassword(token, newPassword) {
-  ensurePasswordLength(newPassword);
-  if (typeof token !== "string" || !/^[A-Za-z0-9_-]{40,100}$/.test(token)) {
-    throw new AppError("Invalid or expired password reset token", 400);
-  }
+  validatePasswordLength(newPassword);
+  validateTokenFormat(token);
+
   const result = await consumePasswordReset(
     hashToken(token),
-    await argon2.hash(newPassword, PASSWORD_OPTIONS),
+    await hashPassword(newPassword),
     new Date(),
   );
   if (result.kind !== "ok") throw new AppError("Invalid or expired password reset token", 400);
@@ -286,6 +280,8 @@ export async function provisionUsers(admin, records) {
 
   let totalProfiles = await countProfilesInInstitution(institutionId);
   const results = [];
+  const successfulCreations = []; // To hold valid provision objects to dispatch emails
+
   for (let index = 0; index < records.length; index += 1) {
     const item = parsed[index];
     if (!item.success) {
@@ -302,34 +298,51 @@ export async function provisionUsers(admin, records) {
       results.push({ index, status: "failed", code: "INSTITUTION_LIMIT", message: "Institution account limit reached" });
       continue;
     }
-    if (await findProfileByEmail(email) ||
-        await findLoginCredential(email)) {
+    if (await findProfileByEmail(email) || await findLoginCredential(email)) {
       results.push({ index, status: "failed", code: "DUPLICATE_EMAIL", message: "Email is already in use" });
       continue;
     }
-    if (input.role === "TEACHER" && input.departmentId &&
-        !(await findActiveDepartmentById(input.departmentId, institutionId))) {
+    if (input.role === "TEACHER" && input.departmentId && !(await findActiveDepartmentById(input.departmentId, institutionId))) {
       results.push({ index, status: "failed", code: "INVALID_DEPARTMENT", message: "Department does not belong to this institution" });
       continue;
     }
 
     try {
+      const tempPassword = generateTemporaryPassword();
+      const hashedTempPassword = await hashPassword(tempPassword);
+
       const profile = await createProfileWithCredential({
         profileId: randomUUID(),
         institutionId,
         actorId: admin.id,
         input,
         emailNormalized: email,
+        passwordHash: hashedTempPassword,
+        activatedAt: new Date() // Mark the account as active and ready to log in immediately
       });
+
       totalProfiles += 1;
-      results.push({
+
+      const successInfo = {
         index,
         status: "created",
         profileId: profile.id,
         email,
         role: profile.role,
-        activationRequired: true,
+        mustChangePassword: true,
+        emailDelivery: "pending"
+      };
+
+      results.push(successInfo);
+
+      // Store creation for post-transaction email delivery
+      successfulCreations.push({
+        fullName: profile.fullName,
+        email,
+        temporaryPassword: tempPassword,
+        resultRef: successInfo
       });
+
     } catch (error) {
       const duplicate = error?.code === "P2002";
       results.push({
@@ -341,7 +354,21 @@ export async function provisionUsers(admin, records) {
     }
   }
 
-  const created = results.filter((result) => result.status === "created").length;
+  // Transaction is complete. Now send emails safely.
+  for (const creation of successfulCreations) {
+    try {
+      await sendProvisionedUserCredentials(creation.email, {
+        fullName: creation.fullName,
+        temporaryPassword: creation.temporaryPassword
+      });
+      creation.resultRef.emailDelivery = "sent";
+    } catch (error) {
+      console.error({ event: "provision_email_failed", email: creation.email, code: error?.code || "MAIL_DELIVERY_FAILED" });
+      creation.resultRef.emailDelivery = "failed";
+    }
+  }
+
+  const created = successfulCreations.length;
   return { created, failed: results.length - created, results };
 }
 
@@ -349,12 +376,52 @@ export async function provisionUser(admin, input) {
   const result = await provisionUsers(admin, [input]);
   const item = result.results[0];
   if (item.status !== "created") throw new AppError(item.message, item.code === "VALIDATION_ERROR" ? 422 : 409);
-  return item;
+
+  // Return single object response format
+  return {
+    status: item.status,
+    profileId: item.profileId,
+    email: item.email,
+    role: item.role,
+    mustChangePassword: item.mustChangePassword,
+    emailDelivery: item.emailDelivery
+  };
+}
+
+export async function resendCredentials(admin, profileId) {
+  if (admin.role !== "INSTITUTION_ADMIN") {
+    throw new AppError("You do not have permission to perform this action", 403);
+  }
+
+  const credential = await findCredentialByProfileId(profileId);
+  if (!credential || credential.profile.institutionId !== admin.institutionId) {
+    throw new AppError("Account not found", 404);
+  }
+
+  if (!credential.mustChangePassword) {
+    throw new AppError("Account has already been fully activated by the user and no longer uses a temporary password.", 400);
+  }
+
+  const tempPassword = generateTemporaryPassword();
+  const hashedTempPassword = await hashPassword(tempPassword);
+
+  // Re-hash and store new password, and revoke any stray sessions
+  await updatePassword(profileId, hashedTempPassword, null); // Keep passwordChangedAt null as they still must change it
+
+  try {
+    await sendProvisionedUserCredentials(credential.profile.email, {
+      fullName: credential.profile.fullName,
+      temporaryPassword: tempPassword
+    });
+    return { status: "resent", emailDelivery: "sent" };
+  } catch (error) {
+    console.error({ event: "resend_provision_email_failed", email: credential.profile.email, code: error?.code || "MAIL_DELIVERY_FAILED" });
+    return { status: "resent", emailDelivery: "failed" };
+  }
 }
 
 export default {
   login, resolveAuthenticatedContext, getCurrentUser, refreshSession, logout,
   changePassword, requestActivation, activateAccount, forgotPassword, resetPassword,
-  provisionUser, provisionUsers,
+  provisionUser, provisionUsers, resendCredentials
 };
-

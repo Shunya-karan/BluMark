@@ -44,6 +44,13 @@ router.post(
   controller.provisionBulk,
 );
 router.post(
+  "/provision-user/:profileId/resend-credentials",
+  authenticate,
+  authorizeRoles("INSTITUTION_ADMIN"),
+  limiter(5),
+  controller.resendCredentials,
+);
+router.post(
   "/change-password",
   authenticate,
   validate(changePasswordSchema),
