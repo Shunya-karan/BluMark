@@ -61,6 +61,15 @@ enum DeviceStatus {
   @@map("device_status")
 }
 
+enum DeviceReplacementStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+
+  @@map("device_replacement_status")
+}
+
 // --------------------------------------------------
 // 1. INSTITUTIONS
 // --------------------------------------------------
@@ -86,6 +95,9 @@ model Institution {
   attendanceSessions AttendanceSession[]
   attendanceRecords  AttendanceRecord[]
   auditLogs          AuditLog[]
+  studyMaterials     StudyMaterial[]
+  notifications      Notification[]
+  deviceReplacementRequests DeviceReplacementRequest[]
 
   @@map("institutions")
 }
@@ -125,6 +137,11 @@ model Profile {
   authSessions        AuthSession[]
   passwordResetTokens PasswordResetToken[]
   activationTokens    AccountActivationToken[]
+  uploadedStudyMaterials StudyMaterial[] @relation("MaterialUploader")
+  receivedNotifications Notification[] @relation("NotificationRecipient")
+  sentNotifications Notification[] @relation("NotificationSender")
+  deviceReplacementRequests DeviceReplacementRequest[] @relation("ReplacementRequester")
+  reviewedDeviceReplacementRequests DeviceReplacementRequest[] @relation("ReplacementReviewer")
 
   @@unique([id, institutionId])
   @@unique([institutionId, email])
@@ -346,6 +363,7 @@ model ClassSubject {
 
   sessions       AttendanceSession[]
   timetableSlots TimetableSlot[]
+  studyMaterials StudyMaterial[]
 
   @@unique([id, institutionId])
   @@unique([id, institutionId, teacherId])
@@ -411,6 +429,67 @@ model Device {
   @@index([institutionId, profileId, status])
   @@index([institutionId, status, registeredAt])
   @@map("devices")
+}
+
+model StudyMaterial {
+  id             String   @id @default(uuid()) @db.Uuid
+  institutionId  String   @map("institution_id") @db.Uuid
+  classSubjectId String   @map("class_subject_id") @db.Uuid
+  uploadedBy     String?  @map("uploaded_by") @db.Uuid
+  title          String
+  description    String?
+  fileUrl        String   @map("file_url")
+  fileType       String   @map("file_type") @db.VarChar(128)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  institution Institution  @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  classSubject ClassSubject @relation(fields: [classSubjectId, institutionId], references: [id, institutionId], onDelete: Restrict)
+  uploader Profile? @relation("MaterialUploader", fields: [uploadedBy, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  @@index([institutionId, classSubjectId, createdAt])
+  @@map("study_materials")
+}
+
+model Notification {
+  id            String    @id @default(uuid()) @db.Uuid
+  institutionId String    @map("institution_id") @db.Uuid
+  recipientId   String    @map("recipient_id") @db.Uuid
+  senderId      String?   @map("sender_id") @db.Uuid
+  title         String
+  body          String
+  type          String    @default("GENERAL") @db.VarChar(64)
+  readAt        DateTime? @map("read_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  recipient Profile @relation("NotificationRecipient", fields: [recipientId, institutionId], references: [id, institutionId], onDelete: Restrict)
+  sender Profile? @relation("NotificationSender", fields: [senderId, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  @@index([institutionId, recipientId, readAt, createdAt])
+  @@map("notifications")
+}
+
+model DeviceReplacementRequest {
+  id                        String                  @id @default(uuid()) @db.Uuid
+  institutionId             String                  @map("institution_id") @db.Uuid
+  profileId                 String                  @map("profile_id") @db.Uuid
+  requestedDeviceIdentifier String                  @map("requested_device_identifier")
+  publicKey                 String?                 @map("public_key")
+  reason                    String?
+  status                    DeviceReplacementStatus @default(PENDING)
+  reviewedBy                String?                 @map("reviewed_by") @db.Uuid
+  reviewedAt                DateTime?               @map("reviewed_at") @db.Timestamptz(3)
+  rejectionReason           String?                 @map("rejection_reason")
+  createdAt                 DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                 DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  requester Profile @relation("ReplacementRequester", fields: [profileId, institutionId], references: [id, institutionId], onDelete: Restrict)
+  reviewer Profile? @relation("ReplacementReviewer", fields: [reviewedBy, institutionId], references: [id, institutionId], onDelete: Restrict)
+
+  @@index([institutionId, profileId, status, createdAt])
+  @@map("device_replacement_requests")
 }
 
 // --------------------------------------------------

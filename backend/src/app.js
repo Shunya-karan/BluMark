@@ -7,6 +7,7 @@ import openApi from "./config/swagger.js";
 import { getFrontendOrigins } from "./config/frontend.js";
 import AppError from "./utils/AppError.js";
 import authRoutes from "./modules/auth/auth.routes.js";
+import studentRoutes from "./modules/students/student.routes.js";
 import notFound from "./middleware/not-found.js";
 import errorHandler from "./middleware/error-handler.js";
 
@@ -55,6 +56,7 @@ app.get("/api/health/db", async (_req, res) => {
   }
 });
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/student", studentRoutes);
 app.get("/api/docs.json", (_req, res) => res.json(openApi));
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openApi));
 app.use(notFound);
