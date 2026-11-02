@@ -14,6 +14,7 @@ const teacherProfileInclude = {
   },
 };
 
+// TEACHER DASHBOARD
 export function findTeacherProfile(profileId, institutionId) {
   return prisma.profile.findFirst({
     where: {
@@ -179,6 +180,81 @@ export function findTeacherRecentActivity(teacherId, institutionId, take = 10) {
       entityId: true,
       details: true,
       createdAt: true,
+    },
+  });
+}
+
+
+
+// TEACHER CLASS MANAGEMENT
+
+export function findAssignedClasses(teacherId, institutionId) {
+  return prisma.classSubject.findMany({
+    where: {
+      teacherId,
+      institutionId,
+      schoolClass: {
+        isActive: true,
+      },
+    },
+    distinct: ["classId"],
+    orderBy: {
+      schoolClass: {
+        name: "asc",
+      },
+    },
+    select: {
+      classId: true,
+      schoolClass: {
+        select: {
+          id: true,
+          name: true,
+          division: true,
+          academicYear: true,
+          semester: true,
+          department: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+export function findAssignedClassById(
+  teacherId,
+  institutionId,
+  classId,
+) {
+  return prisma.schoolClass.findFirst({
+    where: {
+      id: classId,
+      institutionId,
+      isActive: true,
+      subjects: {
+        some: {
+          teacherId,
+          institutionId,
+        },
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+      division: true,
+      academicYear: true,
+      semester: true,
+      department: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+        },
+      },
     },
   });
 }

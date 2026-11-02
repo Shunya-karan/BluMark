@@ -147,3 +147,42 @@ export async function getDashboard(user) {
     recentActivity,
   };
 }
+
+
+
+// TEACHER CLASS MANAGEMENT
+
+export async function getAssignedClasses(user) {
+  const { teacherId, institutionId } = getTeacherIdentity(user);
+
+  // Verify that the teacher account is active.
+  await teacherContext(user);
+
+  const classes = await repository.findAssignedClasses(
+    teacherId,
+    institutionId,
+  );
+
+  return classes.map((item) => item.schoolClass);
+}
+
+export async function getAssignedClassById(user, classId) {
+  const { teacherId, institutionId } = getTeacherIdentity(user);
+
+  await teacherContext(user);
+
+  const schoolClass = await repository.findAssignedClassById(
+    teacherId,
+    institutionId,
+    classId,
+  );
+
+  if (!schoolClass) {
+    throw new AppError(
+      "Class not found or you are not assigned to this class",
+      404,
+    );
+  }
+
+  return schoolClass;
+}

@@ -6,3 +6,10 @@ export const profileUpdateSchema = z.object({
 }).strict().refine((value) => Object.keys(value).length > 0, {
   message: "Provide at least one editable profile field.",
 });
+
+
+// TEACHER CLASS VALIDATION
+
+export const classParamSchema = z.object({
+  classId: z.string().uuid("Invalid class ID"),
+});

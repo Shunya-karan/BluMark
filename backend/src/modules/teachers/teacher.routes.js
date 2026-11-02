@@ -20,4 +20,6 @@ router.patch("/profile", validate(profileUpdateSchema), controller.updateProfile
 router.get("/profile/department", controller.department);
 router.get("/profile/subjects", controller.subjects);
 
+router.get("/classes",controller.assignedClasses)
+router.get("/classes/:classid",controller.assignedClass)
 export default router;

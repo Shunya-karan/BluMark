@@ -69,6 +69,31 @@ export const teacherOpenApi = {
     "/api/v1/teacher/profile/subjects": {
       get: protectedOperation("Get the teacher's assigned subjects and classes"),
     },
+    "/api/v1/teacher/classes": {
+  get: protectedOperation(
+    "Get all classes assigned to the authenticated teacher",
+  ),
+},
+
+"/api/v1/teacher/classes/{classId}": {
+  get: protectedOperation(
+    "Get details of a specific class assigned to the authenticated teacher",
+    {
+      parameters: [
+        {
+          in: "path",
+          name: "classId",
+          required: true,
+          schema: {
+            type: "string",
+            format: "uuid",
+          },
+          description: "ID of the assigned class",
+        },
+      ],
+    },
+  ),
+},
   },
   components: {
     schemas: {

@@ -46,3 +46,30 @@ export const subjects = catchAsync(async (req, res) => {
   const data = await service.getSubjects(req.user);
   return sendResponse(res, 200, "Teacher assigned subjects retrieved successfully", data);
 });
+
+// TEACHER CLASS MANAGEMENT
+
+export const assignedClasses = catchAsync(async (req, res) => {
+  const data = await service.getAssignedClasses(req.user);
+
+  return sendResponse(
+    res,
+    200,
+    "Assigned classes retrieved successfully",
+    data,
+  );
+});
+
+export const assignedClass = catchAsync(async (req, res) => {
+  const data = await service.getAssignedClassById(
+    req.user,
+    req.params.classId,
+  );
+
+  return sendResponse(
+    res,
+    200,
+    "Class details retrieved successfully",
+    data,
+  );
+});
