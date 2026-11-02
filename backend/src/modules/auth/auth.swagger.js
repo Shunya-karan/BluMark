@@ -261,11 +261,12 @@ export const authOpenApi = {
           email: {
             type: "string",
             format: "email",
-            example: "student1@bm.example.com",
+            example: "student1@gmail.com",
           },
           password: {
             type: "string",
             format: "password",
+            example:"blumark@12345",
             writeOnly: true,
           },
         },

@@ -1,0 +1,8 @@
+import { z } from "zod";
+
+export const profileUpdateSchema = z.object({
+  fullName: z.string().trim().min(1).max(120).optional(),
+  phone: z.string().trim().min(3).max(32).nullable().optional(),
+}).strict().refine((value) => Object.keys(value).length > 0, {
+  message: "Provide at least one editable profile field.",
+});
