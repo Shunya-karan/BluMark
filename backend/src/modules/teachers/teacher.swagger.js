@@ -265,6 +265,169 @@ export const teacherOpenApi = {
         },
       ),
     },
+    
+// ==========================================
+// MODULE 4: ATTENDANCE HISTORY
+// ==========================================
+
+"/api/v1/teacher/attendance/history": {
+  get: protectedOperation(
+    "Get paginated attendance history for the authenticated teacher",
+    {
+      parameters: [
+        {
+          in: "query",
+          name: "page",
+          schema: { type: "integer", minimum: 1, default: 1 },
+        },
+        {
+          in: "query",
+          name: "limit",
+          schema: { type: "integer", minimum: 1, maximum: 50, default: 10 },
+        },
+        {
+          in: "query",
+          name: "classId",
+          schema: { type: "string", format: "uuid" },
+          description: "Filter attendance sessions by assigned class",
+        },
+      ],
+    },
+  ),
+},
+
+"/api/v1/teacher/attendance/sessions/{sessionId}": {
+  get: protectedOperation(
+    "Get details of a specific attendance session",
+    {
+      parameters: [
+        {
+          in: "path",
+          name: "sessionId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+      ],
+    },
+  ),
+},
+
+"/api/v1/teacher/attendance/sessions/{sessionId}/records": {
+  get: protectedOperation(
+    "Get paginated student attendance records for a session",
+    {
+      parameters: [
+        {
+          in: "path",
+          name: "sessionId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+        {
+          in: "query",
+          name: "page",
+          schema: { type: "integer", minimum: 1, default: 1 },
+        },
+        {
+          in: "query",
+          name: "limit",
+          schema: { type: "integer", minimum: 1, maximum: 50, default: 10 },
+        },
+        {
+          in: "query",
+          name: "status",
+          schema: {
+            type: "string",
+            enum: ["PRESENT", "LATE", "ABSENT", "EXCUSED"],
+          },
+        },
+      ],
+    },
+  ),
+},
+
+// ==========================================
+// MODULE 5: TEACHER TIMETABLE
+// ==========================================
+
+"/api/v1/teacher/timetable": {
+  get: protectedOperation(
+    "Get the authenticated teacher's complete weekly timetable",
+  ),
+},
+
+"/api/v1/teacher/timetable/day/{weekday}": {
+  get: protectedOperation(
+    "Get the teacher's timetable for a specific weekday",
+    {
+      parameters: [
+        {
+          in: "path",
+          name: "weekday",
+          required: true,
+          schema: {
+            type: "integer",
+            minimum: 1,
+            maximum: 7,
+          },
+          description: "Monday = 1, Sunday = 7",
+        },
+      ],
+    },
+  ),
+},
+
+// ==========================================
+// MODULE 6: STUDY MATERIALS
+// ==========================================
+
+"/api/v1/teacher/study-materials": {
+  get: protectedOperation(
+    "Get paginated study materials uploaded by the teacher",
+    {
+      parameters: [
+        {
+          in: "query",
+          name: "page",
+          schema: { type: "integer", minimum: 1, default: 1 },
+        },
+        {
+          in: "query",
+          name: "limit",
+          schema: { type: "integer", minimum: 1, maximum: 50, default: 10 },
+        },
+        {
+          in: "query",
+          name: "search",
+          schema: { type: "string", maxLength: 100 },
+          description: "Search materials by title or description",
+        },
+        {
+          in: "query",
+          name: "classId",
+          schema: { type: "string", format: "uuid" },
+          description: "Filter materials by assigned class",
+        },
+      ],
+    },
+  ),
+},
+
+"/api/v1/teacher/study-materials/{materialId}": {
+  get: protectedOperation(
+    "Get details of a specific study material uploaded by the teacher",
+    {
+      parameters: [
+        {
+          in: "path",
+          name: "materialId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+      ],
+    },
+  ),
+},
 
 },
   components: {

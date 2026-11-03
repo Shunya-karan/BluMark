@@ -436,3 +436,240 @@ export async function getClassStudentsPaginated(
     },
   };
 }
+
+
+
+// ==========================================
+// MODULE 4: TEACHER ATTENDANCE HISTORY
+// ==========================================
+
+export async function getAttendanceHistory(user, query) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const {
+    page = 1,
+    limit = 10,
+    classId,
+  } = query;
+
+  // Verify class access when filtering by class.
+  if (classId) {
+    await verifyAssignedClass(user, classId);
+  }
+
+  const [sessions, totalRecords] =
+    await repository.findTeacherAttendanceSessions({
+      teacherId,
+      institutionId,
+      page,
+      limit,
+      classId,
+    });
+
+  const totalPages = Math.ceil(totalRecords / limit);
+
+  return {
+    sessions,
+    pagination: {
+      currentPage: page,
+      pageSize: limit,
+      totalRecords,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1,
+    },
+  };
+}
+
+export async function getAttendanceSessionDetails(user, sessionId) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const session = await repository.findTeacherAttendanceSessionById(
+    teacherId,
+    institutionId,
+    sessionId,
+  );
+
+  if (!session) {
+    throw new AppError("Attendance session not found", 404);
+  }
+
+  return session;
+}
+
+export async function getSessionAttendanceRecords(
+  user,
+  sessionId,
+  query,
+) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  // Verify that the session belongs to this teacher.
+  const session = await repository.findTeacherAttendanceSessionById(
+    teacherId,
+    institutionId,
+    sessionId,
+  );
+
+  if (!session) {
+    throw new AppError("Attendance session not found", 404);
+  }
+
+  const {
+    page = 1,
+    limit = 10,
+    status,
+  } = query;
+
+  const [records, totalRecords] =
+    await repository.findSessionAttendanceRecords({
+      institutionId,
+      sessionId,
+      page,
+      limit,
+      status,
+    });
+
+  const totalPages = Math.ceil(totalRecords / limit);
+
+  return {
+    session: {
+      id: session.id,
+      sessionCode: session.sessionCode,
+      status: session.status,
+    },
+    records,
+    pagination: {
+      currentPage: page,
+      pageSize: limit,
+      totalRecords,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1,
+    },
+  };
+}
+
+// ==========================================
+// MODULE 5: TEACHER TIMETABLE
+// ==========================================
+
+export async function getWeeklyTimetable(user) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const timetable = await repository.findTeacherWeeklyTimetable(
+    teacherId,
+    institutionId,
+  );
+
+  const weekdayNames = {
+    1: "Monday",
+    2: "Tuesday",
+    3: "Wednesday",
+    4: "Thursday",
+    5: "Friday",
+    6: "Saturday",
+    7: "Sunday",
+  };
+
+  const groupedTimetable = Object.fromEntries(
+    Object.entries(weekdayNames).map(([day, name]) => [
+      name,
+      timetable.filter((slot) => slot.weekday === Number(day)),
+    ]),
+  );
+
+  return {
+    totalSlots: timetable.length,
+    timetable: groupedTimetable,
+  };
+}
+
+export async function getTimetableByWeekday(user, weekday) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const timetable = await repository.findTeacherTimetableByWeekday(
+    teacherId,
+    institutionId,
+    weekday,
+  );
+
+  const weekdayNames = {
+    1: "Monday",
+    2: "Tuesday",
+    3: "Wednesday",
+    4: "Thursday",
+    5: "Friday",
+    6: "Saturday",
+    7: "Sunday",
+  };
+
+  return {
+    weekday,
+    dayName: weekdayNames[weekday],
+    totalSlots: timetable.length,
+    timetable,
+  };
+}
+
+// ==========================================
+// MODULE 6: TEACHER STUDY MATERIALS
+// ==========================================
+
+export async function getTeacherStudyMaterials(user, query) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const {
+    page = 1,
+    limit = 10,
+    search = "",
+    classId,
+  } = query;
+
+  if (classId) {
+    await verifyAssignedClass(user, classId);
+  }
+
+  const [materials, totalRecords] =
+    await repository.findTeacherStudyMaterials({
+      teacherId,
+      institutionId,
+      page,
+      limit,
+      search: search.trim(),
+      classId,
+    });
+
+  const totalPages = Math.ceil(totalRecords / limit);
+
+  return {
+    materials,
+    pagination: {
+      currentPage: page,
+      pageSize: limit,
+      totalRecords,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1,
+    },
+  };
+}
+
+export async function getTeacherStudyMaterialById(user, materialId) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const material = await repository.findTeacherStudyMaterialById(
+    teacherId,
+    institutionId,
+    materialId,
+  );
+
+  if (!material) {
+    throw new AppError(
+      "Study material not found or you do not have access",
+      404,
+    );
+  }
+
+  return material;
+}

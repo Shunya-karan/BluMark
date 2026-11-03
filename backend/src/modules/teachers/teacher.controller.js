@@ -241,3 +241,111 @@ export const classStudentDirectory = catchAsync(async (req, res) => {
     data,
   );
 });
+
+
+
+// ==========================================
+// MODULE 4: ATTENDANCE HISTORY
+// ==========================================
+
+export const attendanceHistory = catchAsync(async (req, res) => {
+  const data = await service.getAttendanceHistory(
+    req.user,
+    req.query,
+  );
+
+  return sendResponse(
+    res,
+    200,
+    "Attendance history retrieved successfully",
+    data,
+  );
+});
+
+export const attendanceSessionDetails = catchAsync(
+  async (req, res) => {
+    const data = await service.getAttendanceSessionDetails(
+      req.user,
+      req.params.sessionId,
+    );
+
+    return sendResponse(
+      res,
+      200,
+      "Attendance session details retrieved successfully",
+      data,
+    );
+  },
+);
+
+export const sessionAttendanceRecords = catchAsync(
+  async (req, res) => {
+    const data = await service.getSessionAttendanceRecords(
+      req.user,
+      req.params.sessionId,
+      req.query,
+    );
+
+    return sendResponse(
+      res,
+      200,
+      "Session attendance records retrieved successfully",
+      data,
+    );
+  },
+);
+
+// ==========================================
+// MODULE 5: TIMETABLE
+// ==========================================
+
+export const weeklyTimetable = catchAsync(async (req, res) => {
+  const data = await service.getWeeklyTimetable(req.user);
+
+  return sendResponse(
+    res,
+    200,
+    "Weekly timetable retrieved successfully",
+    data,
+  );
+});
+
+export const timetableByWeekday = catchAsync(async (req, res) => {
+  const data = await service.getTimetableByWeekday(
+    req.user,
+    Number(req.params.weekday),
+  );
+
+  return sendResponse(res, 200, "Timetable retrieved successfully", data);
+});
+// ==========================================
+// MODULE 6: STUDY MATERIALS
+// ==========================================
+
+export const studyMaterials = catchAsync(async (req, res) => {
+  const data = await service.getTeacherStudyMaterials(
+    req.user,
+    req.query,
+  );
+
+  return sendResponse(
+    res,
+    200,
+    "Study materials retrieved successfully",
+    data,
+  );
+});
+
+export const studyMaterialDetails = catchAsync(async (req, res) => {
+  const data = await service.getTeacherStudyMaterialById(
+    req.user,
+    req.params.materialId,
+  );
+
+  return sendResponse(
+    res,
+    200,
+    "Study material details retrieved successfully",
+    data,
+  );
+});

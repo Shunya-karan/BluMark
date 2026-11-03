@@ -13,19 +13,22 @@ import {
   classStudentParamSchema,
   classSubjectParamSchema,
   studentDirectoryQuerySchema,
+  attendanceHistoryQuerySchema,
+  attendanceSessionParamSchema,
+  sessionAttendanceQuerySchema,
+  timetableWeekdaySchema,
+  studyMaterialParamSchema,
+  studyMaterialQuerySchema,
 } from "./teacher.validation.js";
 
 const router = Router();
 
-// ==========================================
 // TEACHER AUTHORIZATION
-// ==========================================
 
 router.use(authenticate, authorizeRoles("TEACHER"));
 
-// ==========================================
+
 // TEACHER DASHBOARD
-// ==========================================
 
 router.get("/dashboard", controller.dashboard);
 
@@ -49,9 +52,7 @@ router.get(
   controller.recentActivity,
 );
 
-// ==========================================
 // TEACHER PROFILE
-// ==========================================
 
 router.get("/profile", controller.getProfile);
 
@@ -71,9 +72,7 @@ router.get(
   controller.subjects,
 );
 
-// ==========================================
 // ASSIGNED CLASSES
-// ==========================================
 
 router.get(
   "/classes",
@@ -86,9 +85,7 @@ router.get(
   controller.assignedClass,
 );
 
-// ==========================================
 // MODULE 1: CLASS SUBJECTS
-// ==========================================
 
 router.get(
   "/classes/:classId/subjects",
@@ -102,9 +99,7 @@ router.get(
   controller.classSubject,
 );
 
-// ==========================================
 // MODULE 2: CLASS STATISTICS
-// ==========================================
 
 router.get(
   "/classes/:classId/statistics",
@@ -112,9 +107,7 @@ router.get(
   controller.classStatistics,
 );
 
-// ==========================================
 // MODULE 3: STUDENT DIRECTORY
-// ==========================================
 
 // Paginated and searchable student directory.
 // Keep this route separate from the existing /students endpoint.
@@ -140,4 +133,51 @@ router.get(
   controller.classStudent,
 );
 
+// MODULE 4: ATTENDANCE HISTORY
+
+router.get(
+  "/attendance/history",
+  validate(attendanceHistoryQuerySchema, "query"),
+  controller.attendanceHistory,
+);
+
+router.get(
+  "/attendance/sessions/:sessionId",
+  validate(attendanceSessionParamSchema, "params"),
+  controller.attendanceSessionDetails,
+);
+
+router.get(
+  "/attendance/sessions/:sessionId/records",
+  validate(attendanceSessionParamSchema, "params"),
+  validate(sessionAttendanceQuerySchema, "query"),
+  controller.sessionAttendanceRecords,
+);
+
+// MODULE 5: TEACHER TIMETABLE
+
+router.get(
+  "/timetable",
+  controller.weeklyTimetable,
+);
+
+router.get(
+  "/timetable/day/:weekday",
+  validate(timetableWeekdaySchema, "params"),
+  controller.timetableByWeekday,
+);
+
+// MODULE 6: STUDY MATERIALS
+
+router.get(
+  "/study-materials",
+  validate(studyMaterialQuerySchema, "query"),
+  controller.studyMaterials,
+);
+
+router.get(
+  "/study-materials/:materialId",
+  validate(studyMaterialParamSchema, "params"),
+  controller.studyMaterialDetails,
+);
 export default router;

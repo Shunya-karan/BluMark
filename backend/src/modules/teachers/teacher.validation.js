@@ -61,3 +61,90 @@ export const studentDirectoryQuerySchema = z.object({
     .enum(["asc", "desc"])
     .default("asc"),
 });
+
+
+// ==========================================
+// MODULE 4: ATTENDANCE HISTORY VALIDATION
+// ==========================================
+
+export const attendanceHistoryQuerySchema = z.object({
+  page: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .default(1),
+
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(50)
+    .default(10),
+
+  classId: z.string().uuid("Invalid class ID").optional(),
+});
+
+export const attendanceSessionParamSchema = z.object({
+  sessionId: z.string().uuid("Invalid attendance session ID"),
+});
+
+export const sessionAttendanceQuerySchema = z.object({
+  page: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .default(1),
+
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(50)
+    .default(10),
+
+  status: z
+    .enum(["PRESENT", "LATE", "ABSENT", "EXCUSED"])
+    .optional(),
+});
+
+// ==========================================
+// MODULE 5: TIMETABLE VALIDATION
+// ==========================================
+
+export const timetableWeekdaySchema = z.object({
+  weekday: z.coerce
+    .number()
+    .int()
+    .min(1, "Weekday must be between 1 and 7")
+    .max(7, "Weekday must be between 1 and 7"),
+});
+
+// ==========================================
+// MODULE 6: STUDY MATERIAL VALIDATION
+// ==========================================
+
+export const studyMaterialParamSchema = z.object({
+  materialId: z.string().uuid("Invalid study material ID"),
+});
+
+export const studyMaterialQuerySchema = z.object({
+  page: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .default(1),
+
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(50)
+    .default(10),
+
+  search: z.string()
+    .trim()
+    .max(100, "Search cannot exceed 100 characters")
+    .default(""),
+
+  classId: z.string().uuid("Invalid class ID").optional(),
+});

@@ -15,9 +15,7 @@ const teacherProfileInclude = {
   },
 };
 
-// ==========================================
 // TEACHER DASHBOARD & PROFILE
-// ==========================================
 
 export function findTeacherProfile(profileId, institutionId) {
   return prisma.profile.findFirst({
@@ -213,9 +211,7 @@ export function findTeacherRecentActivity(
   });
 }
 
-// ==========================================
 // TEACHER CLASS MANAGEMENT
-// ==========================================
 
 export function findAssignedClasses(teacherId, institutionId) {
   return prisma.classSubject.findMany({
@@ -276,9 +272,7 @@ export function findAssignedClassById(
   });
 }
 
-// ==========================================
 // CLASS STUDENTS
-// ==========================================
 
 export async function findClassStudents(
   teacherId,
@@ -322,7 +316,6 @@ export async function findClassStudents(
     },
   });
 }
-
 export async function findClassStudentById(
   teacherId,
   institutionId,
@@ -364,9 +357,7 @@ export async function findClassStudentById(
     },
   });
 }
-
 //  CLASS SUBJECTS
-
 export function findClassSubjects(
   teacherId,
   institutionId,
@@ -441,9 +432,7 @@ export function findClassSubjectById(
   });
 }
 
-
 // CLASS STATISTICS
-
 
 export async function getClassStatistics(
   teacherId,
@@ -641,4 +630,425 @@ export function findClassStudentsPaginated({
 
     prisma.enrollment.count({ where }),
   ]);
+}
+
+
+// MODULE 4: TEACHER ATTENDANCE HISTORY
+// ==========================================
+
+export function findTeacherAttendanceSessions({
+  teacherId,
+  institutionId,
+  page,
+  limit,
+  classId,
+}) {
+  const where = {
+    teacherId,
+    institutionId,
+  };
+
+  if (classId) {
+    where.classSubject = {
+      classId,
+      schoolClass: {
+        isActive: true,
+      },
+    };
+  }
+
+  const skip = (page - 1) * limit;
+
+  return Promise.all([
+    prisma.attendanceSession.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: {
+        startsAt: "desc",
+      },
+      select: {
+        id: true,
+        sessionCode: true,
+        status: true,
+        startsAt: true,
+        expiresAt: true,
+        endedAt: true,
+        classSubject: {
+          select: {
+            id: true,
+            subject: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
+            schoolClass: {
+              select: {
+                id: true,
+                name: true,
+                division: true,
+                academicYear: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            records: true,
+          },
+        },
+      },
+    }),
+
+    prisma.attendanceSession.count({ where }),
+  ]);
+}
+
+export function findTeacherAttendanceSessionById(
+  teacherId,
+  institutionId,
+  sessionId,
+) {
+  return prisma.attendanceSession.findFirst({
+    where: {
+      id: sessionId,
+      teacherId,
+      institutionId,
+    },
+    select: {
+      id: true,
+      sessionCode: true,
+      status: true,
+      startsAt: true,
+      expiresAt: true,
+      endedAt: true,
+      classSubject: {
+        select: {
+          id: true,
+          subject: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
+          schoolClass: {
+            select: {
+              id: true,
+              name: true,
+              division: true,
+              academicYear: true,
+            },
+          },
+        },
+      },
+      _count: {
+        select: {
+          records: true,
+        },
+      },
+    },
+  });
+}
+
+export function findSessionAttendanceRecords({
+  institutionId,
+  sessionId,
+  page,
+  limit,
+  status,
+}) {
+  const where = {
+    institutionId,
+    sessionId,
+  };
+
+  if (status) {
+    where.status = status;
+  }
+
+  const skip = (page - 1) * limit;
+
+  return Promise.all([
+    prisma.attendanceRecord.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: {
+        markedAt: "desc",
+      },
+      select: {
+        id: true,
+        status: true,
+        method: true,
+        markedAt: true,
+        rssi: true,
+        notes: true,
+        student: {
+          select: {
+            id: true,
+            fullName: true,
+            studentDetails: {
+              select: {
+                studentNumber: true,
+              },
+            },
+          },
+        },
+      },
+    }),
+
+    prisma.attendanceRecord.count({ where }),
+  ]);
+}
+
+// ==========================================
+// MODULE 5: TEACHER TIMETABLE
+
+export function findTeacherWeeklyTimetable(
+  teacherId,
+  institutionId,
+) {
+  return prisma.timetableSlot.findMany({
+    where: {
+      institutionId,
+      isActive: true,
+      classSubject: {
+        teacherId,
+        institutionId,
+        schoolClass: {
+          isActive: true,
+        },
+        subject: {
+          isActive: true,
+        },
+      },
+    },
+    orderBy: [
+      { weekday: "asc" },
+      { startTime: "asc" },
+    ],
+    select: {
+      id: true,
+      weekday: true,
+      startTime: true,
+      endTime: true,
+      room: true,
+      classSubject: {
+        select: {
+          id: true,
+          subject: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
+          schoolClass: {
+            select: {
+              id: true,
+              name: true,
+              division: true,
+              academicYear: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+export function findTeacherTimetableByWeekday(
+  teacherId,
+  institutionId,
+  weekday,
+) {
+  return prisma.timetableSlot.findMany({
+    where: {
+      institutionId,
+      weekday,
+      isActive: true,
+      classSubject: {
+        teacherId,
+        institutionId,
+        schoolClass: {
+          isActive: true,
+        },
+        subject: {
+          isActive: true,
+        },
+      },
+    },
+    orderBy: {
+      startTime: "asc",
+    },
+    select: {
+      id: true,
+      weekday: true,
+      startTime: true,
+      endTime: true,
+      room: true,
+      classSubject: {
+        select: {
+          id: true,
+          subject: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
+          schoolClass: {
+            select: {
+              id: true,
+              name: true,
+              division: true,
+              academicYear: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+// ==========================================
+// MODULE 6: TEACHER STUDY MATERIALS
+// ==========================================
+
+export function findTeacherStudyMaterials({
+  teacherId,
+  institutionId,
+  page,
+  limit,
+  search,
+  classId,
+}) {
+  const where = {
+    institutionId,
+    uploadedBy: teacherId,
+    classSubject: {
+      institutionId,
+      teacherId,
+      schoolClass: {
+        isActive: true,
+      },
+      subject: {
+        isActive: true,
+      },
+    },
+  };
+
+  if (classId) {
+    where.classSubject.classId = classId;
+  }
+
+  if (search) {
+    where.OR = [
+      {
+        title: {
+          contains: search,
+          mode: "insensitive",
+        },
+      },
+      {
+        description: {
+          contains: search,
+          mode: "insensitive",
+        },
+      },
+    ];
+  }
+
+  const skip = (page - 1) * limit;
+
+  return Promise.all([
+    prisma.studyMaterial.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        fileUrl: true,
+        fileType: true,
+        createdAt: true,
+        classSubject: {
+          select: {
+            id: true,
+            subject: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
+            schoolClass: {
+              select: {
+                id: true,
+                name: true,
+                division: true,
+              },
+            },
+          },
+        },
+      },
+    }),
+
+    prisma.studyMaterial.count({ where }),
+  ]);
+}
+
+export function findTeacherStudyMaterialById(
+  teacherId,
+  institutionId,
+  materialId,
+) {
+  return prisma.studyMaterial.findFirst({
+    where: {
+      id: materialId,
+      institutionId,
+      uploadedBy: teacherId,
+      classSubject: {
+        institutionId,
+        teacherId,
+        schoolClass: {
+          isActive: true,
+        },
+      },
+    },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      fileUrl: true,
+      fileType: true,
+      createdAt: true,
+      classSubject: {
+        select: {
+          id: true,
+          subject: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
+          schoolClass: {
+            select: {
+              id: true,
+              name: true,
+              division: true,
+            },
+          },
+        },
+      },
+    },
+  });
 }
