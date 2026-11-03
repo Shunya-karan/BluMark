@@ -18,3 +18,46 @@ export const classStudentParamSchema = z.object({
   classId: z.string().uuid("Invalid class ID"),
   studentId: z.string().uuid("Invalid student ID"),
 });
+
+
+// ==========================================
+// TEACHER SUBJECT VALIDATION
+// ==========================================
+
+export const classSubjectParamSchema = z.object({
+  classId: z.string().uuid("Invalid class ID"),
+  subjectId: z.string().uuid("Invalid subject ID"),
+});
+
+// ==========================================
+// TEACHER STUDENT DIRECTORY QUERY VALIDATION
+// ==========================================
+
+export const studentDirectoryQuerySchema = z.object({
+  page: z.coerce
+    .number()
+    .int("Page must be an integer")
+    .min(1, "Page must be at least 1")
+    .default(1),
+
+  limit: z.coerce
+    .number()
+    .int("Limit must be an integer")
+    .min(1, "Limit must be at least 1")
+    .max(50, "Maximum limit is 50")
+    .default(10),
+
+  search: z.string().trim().max(100, "Search cannot exceed 100 characters").default(""),
+
+  enrollmentStatus: z
+    .enum(["active", "inactive", "all"])
+    .default("active"),
+
+  sortBy: z
+    .enum(["fullName", "enrolledAt"])
+    .default("fullName"),
+
+  sortOrder: z
+    .enum(["asc", "desc"])
+    .default("asc"),
+});

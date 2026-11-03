@@ -105,8 +105,7 @@ export const teacherOpenApi = {
     ],
   }),
     },
-
-"/api/v1/teacher/classes/{classId}/students/{studentId}": {
+    "/api/v1/teacher/classes/{classId}/students/{studentId}": {
   get: protectedOperation("Get a student's details within an assigned class", {
     parameters: [
       {
@@ -125,6 +124,148 @@ export const teacherOpenApi = {
   }),
     },
   
+    // MODULE 1: CLASS SUBJECTS
+  
+    "/api/v1/teacher/classes/{classId}/subjects": {
+      get: protectedOperation(
+        "Get subjects assigned to the teacher in a specific class",
+        {
+          parameters: [
+            {
+              in: "path",
+              name: "classId",
+              required: true,
+              schema: {
+                type: "string",
+                format: "uuid",
+              },
+            },
+          ],
+        },
+      ),
+    },
+    "/api/v1/teacher/classes/{classId}/subjects/{subjectId}": {
+      get: protectedOperation(
+        "Get details of a specific subject assigned to the teacher",
+        {
+          parameters: [
+            {
+              in: "path",
+              name: "classId",
+              required: true,
+              schema: {
+                type: "string",
+                format: "uuid",
+              },
+            },
+            {
+              in: "path",
+              name: "subjectId",
+              required: true,
+              schema: {
+                type: "string",
+                format: "uuid",
+              },
+            },
+          ],
+        },
+      ),
+    },
+    // MODULE 2: CLASS STATISTICS
+  
+    "/api/v1/teacher/classes/{classId}/statistics": {
+      get: protectedOperation(
+        "Get student, subject and attendance statistics for an assigned class",
+        {
+          parameters: [
+            {
+              in: "path",
+              name: "classId",
+              required: true,
+              schema: {
+                type: "string",
+                format: "uuid",
+              },
+            },
+          ],
+        },
+      ),
+    },
+    // MODULE 3: STUDENT DIRECTORY
+    "/api/v1/teacher/classes/{classId}/students/directory": {
+      get: protectedOperation(
+        "Get a paginated and searchable student directory",
+        {
+          parameters: [
+            {
+              in: "path",
+              name: "classId",
+              required: true,
+              schema: {
+                type: "string",
+                format: "uuid",
+              },
+            },
+            {
+              in: "query",
+              name: "page",
+              schema: {
+                type: "integer",
+                minimum: 1,
+                default: 1,
+              },
+            },
+            {
+              in: "query",
+              name: "limit",
+              schema: {
+                type: "integer",
+                minimum: 1,
+                maximum: 50,
+                default: 10,
+              },
+            },
+            {
+              in: "query",
+              name: "search",
+              schema: {
+                type: "string",
+                maxLength: 100,
+              },
+              description: "Search by student name, email or student number",
+            },
+            {
+              in: "query",
+              name: "enrollmentStatus",
+              schema: {
+                type: "string",
+                enum: ["active", "inactive", "all"],
+                default: "active",
+              },
+            },
+            {
+              in: "query",
+              name: "sortBy",
+              schema: {
+                type: "string",
+                enum: ["fullName", "enrolledAt"],
+                default: "fullName",
+              },
+            },
+            {
+              in: "query",
+              name: "sortOrder",
+              schema: {
+                type: "string",
+                enum: ["asc", "desc"],
+                default: "asc",
+              },
+            },
+          ],
+        },
+      ),
+    },
+
 },
   components: {
     schemas: {

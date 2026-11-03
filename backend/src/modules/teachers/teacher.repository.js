@@ -1,3 +1,4 @@
+
 import prisma from "../../config/prisma.js";
 
 const teacherProfileInclude = {
@@ -14,7 +15,10 @@ const teacherProfileInclude = {
   },
 };
 
-// TEACHER DASHBOARD
+// ==========================================
+// TEACHER DASHBOARD & PROFILE
+// ==========================================
+
 export function findTeacherProfile(profileId, institutionId) {
   return prisma.profile.findFirst({
     where: {
@@ -53,7 +57,9 @@ export function findTeacherAssignments(teacherId, institutionId) {
       id: true,
       classId: true,
       subjectId: true,
-      subject: { select: { id: true, name: true, code: true, isActive: true } },
+      subject: {
+        select: { id: true, name: true, code: true, isActive: true },
+      },
       schoolClass: {
         select: {
           id: true,
@@ -61,7 +67,9 @@ export function findTeacherAssignments(teacherId, institutionId) {
           division: true,
           academicYear: true,
           semester: true,
-          department: { select: { id: true, name: true, code: true } },
+          department: {
+            select: { id: true, name: true, code: true },
+          },
         },
       },
     },
@@ -76,6 +84,7 @@ export function findTodayTimetable(teacherId, institutionId, weekday) {
       weekday,
       classSubject: {
         teacherId,
+        institutionId,
         schoolClass: { isActive: true },
         subject: { isActive: true },
       },
@@ -90,9 +99,17 @@ export function findTodayTimetable(teacherId, institutionId, weekday) {
       classSubject: {
         select: {
           id: true,
-          subject: { select: { id: true, name: true, code: true } },
+          subject: {
+            select: { id: true, name: true, code: true },
+          },
           schoolClass: {
-            select: { id: true, name: true, division: true, academicYear: true, semester: true },
+            select: {
+              id: true,
+              name: true,
+              division: true,
+              academicYear: true,
+              semester: true,
+            },
           },
         },
       },
@@ -114,29 +131,34 @@ export async function getTeacherSummary(teacherId, institutionId) {
   const classIds = [...new Set(assignments.map((item) => item.classId))];
   const subjectIds = [...new Set(assignments.map((item) => item.subjectId))];
 
-  const [studentIds, attendanceSessions, attendanceRecords] = await Promise.all([
-    classIds.length
-      ? prisma.enrollment.findMany({
-          where: {
-            institutionId,
-            classId: { in: classIds },
-            isActive: true,
-            student: { isActive: true, role: "STUDENT" },
-          },
-          distinct: ["studentId"],
-          select: { studentId: true },
-        })
-      : Promise.resolve([]),
-    prisma.attendanceSession.count({ where: { institutionId, teacherId } }),
-    prisma.attendanceRecord.groupBy({
-      by: ["status"],
-      where: {
-        institutionId,
-        session: { teacherId },
-      },
-      _count: { _all: true },
-    }),
-  ]);
+  const [studentIds, attendanceSessions, attendanceRecords] =
+    await Promise.all([
+      classIds.length
+        ? prisma.enrollment.findMany({
+            where: {
+              institutionId,
+              classId: { in: classIds },
+              isActive: true,
+              student: { isActive: true, role: "STUDENT" },
+            },
+            distinct: ["studentId"],
+            select: { studentId: true },
+          })
+        : Promise.resolve([]),
+
+      prisma.attendanceSession.count({
+        where: { institutionId, teacherId },
+      }),
+
+      prisma.attendanceRecord.groupBy({
+        by: ["status"],
+        where: {
+          institutionId,
+          session: { teacherId },
+        },
+        _count: { _all: true },
+      }),
+    ]);
 
   const recordCounts = Object.fromEntries(
     attendanceRecords.map((item) => [item.status, item._count._all]),
@@ -148,7 +170,10 @@ export async function getTeacherSummary(teacherId, institutionId) {
     totalStudents: studentIds.length,
     totalAttendanceSessions: attendanceSessions,
     attendanceRecords: {
-      total: Object.values(recordCounts).reduce((sum, count) => sum + count, 0),
+      total: Object.values(recordCounts).reduce(
+        (sum, count) => sum + count,
+        0,
+      ),
       present: recordCounts.PRESENT ?? 0,
       late: recordCounts.LATE ?? 0,
       absent: recordCounts.ABSENT ?? 0,
@@ -168,7 +193,11 @@ export function findTeacherAttendanceSummary(teacherId, institutionId) {
   });
 }
 
-export function findTeacherRecentActivity(teacherId, institutionId, take = 10) {
+export function findTeacherRecentActivity(
+  teacherId,
+  institutionId,
+  take = 10,
+) {
   return prisma.auditLog.findMany({
     where: { institutionId, actorId: teacherId },
     orderBy: { createdAt: "desc" },
@@ -184,24 +213,20 @@ export function findTeacherRecentActivity(teacherId, institutionId, take = 10) {
   });
 }
 
-
-
+// ==========================================
 // TEACHER CLASS MANAGEMENT
+// ==========================================
 
 export function findAssignedClasses(teacherId, institutionId) {
   return prisma.classSubject.findMany({
     where: {
       teacherId,
       institutionId,
-      schoolClass: {
-        isActive: true,
-      },
+      schoolClass: { isActive: true },
     },
     distinct: ["classId"],
     orderBy: {
-      schoolClass: {
-        name: "asc",
-      },
+      schoolClass: { name: "asc" },
     },
     select: {
       classId: true,
@@ -213,11 +238,7 @@ export function findAssignedClasses(teacherId, institutionId) {
           academicYear: true,
           semester: true,
           department: {
-            select: {
-              id: true,
-              name: true,
-              code: true,
-            },
+            select: { id: true, name: true, code: true },
           },
         },
       },
@@ -249,17 +270,21 @@ export function findAssignedClassById(
       academicYear: true,
       semester: true,
       department: {
-        select: {
-          id: true,
-          name: true,
-          code: true,
-        },
+        select: { id: true, name: true, code: true },
       },
     },
   });
 }
 
-export async function findClassStudents(teacherId, institutionId, classId) {
+// ==========================================
+// CLASS STUDENTS
+// ==========================================
+
+export async function findClassStudents(
+  teacherId,
+  institutionId,
+  classId,
+) {
   return prisma.enrollment.findMany({
     where: {
       institutionId,
@@ -273,10 +298,7 @@ export async function findClassStudents(teacherId, institutionId, classId) {
       schoolClass: {
         isActive: true,
         subjects: {
-          some: {
-            teacherId,
-            institutionId,
-          },
+          some: { teacherId, institutionId },
         },
       },
     },
@@ -290,17 +312,13 @@ export async function findClassStudents(teacherId, institutionId, classId) {
           email: true,
           phone: true,
           studentDetails: {
-            select: {
-              studentNumber: true,
-            },
+            select: { studentNumber: true },
           },
         },
       },
     },
     orderBy: {
-      student: {
-        fullName: "asc",
-      },
+      student: { fullName: "asc" },
     },
   });
 }
@@ -325,10 +343,7 @@ export async function findClassStudentById(
       schoolClass: {
         isActive: true,
         subjects: {
-          some: {
-            teacherId,
-            institutionId,
-          },
+          some: { teacherId, institutionId },
         },
       },
     },
@@ -342,12 +357,288 @@ export async function findClassStudentById(
           email: true,
           phone: true,
           studentDetails: {
-            select: {
-              studentNumber: true,
-            },
+            select: { studentNumber: true },
           },
         },
       },
     },
   });
+}
+
+//  CLASS SUBJECTS
+
+export function findClassSubjects(
+  teacherId,
+  institutionId,
+  classId,
+) {
+  return prisma.classSubject.findMany({
+    where: {
+      teacherId,
+      institutionId,
+      classId,
+      schoolClass: { isActive: true },
+      subject: { isActive: true },
+    },
+    orderBy: {
+      subject: { name: "asc" },
+    },
+    select: {
+      id: true,
+      classId: true,
+      subjectId: true,
+      teacherId: true,
+      subject: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          isActive: true,
+        },
+      },
+    },
+  });
+}
+
+export function findClassSubjectById(
+  teacherId,
+  institutionId,
+  classId,
+  subjectId,
+) {
+  return prisma.classSubject.findFirst({
+    where: {
+      teacherId,
+      institutionId,
+      classId,
+      subjectId,
+      schoolClass: { isActive: true },
+      subject: { isActive: true },
+    },
+    select: {
+      id: true,
+      classId: true,
+      subjectId: true,
+      teacherId: true,
+      subject: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          isActive: true,
+        },
+      },
+      schoolClass: {
+        select: {
+          id: true,
+          name: true,
+          division: true,
+          academicYear: true,
+          semester: true,
+        },
+      },
+    },
+  });
+}
+
+
+// CLASS STATISTICS
+
+
+export async function getClassStatistics(
+  teacherId,
+  institutionId,
+  classId,
+) {
+  const assignmentWhere = {
+    institutionId,
+    teacherId,
+    classId,
+    schoolClass: { isActive: true },
+    subject: { isActive: true },
+  };
+
+  const [totalSubjects, totalStudents, totalSessions, attendanceGroups] =
+    await Promise.all([
+      prisma.classSubject.count({
+        where: assignmentWhere,
+      }),
+
+      prisma.enrollment.count({
+        where: {
+          institutionId,
+          classId,
+          isActive: true,
+          student: {
+            institutionId,
+            role: "STUDENT",
+            isActive: true,
+          },
+        },
+      }),
+
+      prisma.attendanceSession.count({
+        where: {
+          institutionId,
+          teacherId,
+          classSubject: { classId },
+        },
+      }),
+
+      prisma.attendanceRecord.groupBy({
+        by: ["status"],
+        where: {
+          institutionId,
+          session: {
+            institutionId,
+            teacherId,
+            classSubject: { classId },
+          },
+        },
+        _count: { _all: true },
+      }),
+    ]);
+
+  const counts = Object.fromEntries(
+    attendanceGroups.map((item) => [
+      item.status,
+      item._count._all,
+    ]),
+  );
+
+  const present = counts.PRESENT ?? 0;
+  const late = counts.LATE ?? 0;
+  const absent = counts.ABSENT ?? 0;
+  const excused = counts.EXCUSED ?? 0;
+
+  const totalRecords = present + late + absent + excused;
+
+  const attendancePercentage =
+    totalRecords > 0
+      ? Number((((present + late) / totalRecords) * 100).toFixed(2))
+      : 0;
+
+  return {
+    totalSubjects,
+    totalStudents,
+    totalSessions,
+    attendance: {
+      totalRecords,
+      present,
+      late,
+      absent,
+      excused,
+      attendancePercentage,
+    },
+  };
+}
+
+
+// MODULE 3: PAGINATED STUDENT DIRECTORY
+
+
+export function findClassStudentsPaginated({
+  teacherId,
+  institutionId,
+  classId,
+  page,
+  limit,
+  search,
+  enrollmentStatus,
+  sortBy,
+  sortOrder,
+}) {
+  const where = {
+    institutionId,
+    classId,
+
+    // Restrict students to this teacher's assigned class.
+    schoolClass: {
+      isActive: true,
+      subjects: {
+        some: {
+          teacherId,
+          institutionId,
+        },
+      },
+    },
+
+    student: {
+      institutionId,
+      role: "STUDENT",
+      isActive: true,
+    },
+  };
+
+  // Enrollment filter: active, inactive or all.
+  if (enrollmentStatus !== "all") {
+    where.isActive = enrollmentStatus === "active";
+  }
+
+  // Search by student name, email or student number.
+  if (search) {
+    where.student = {
+      ...where.student,
+      OR: [
+        {
+          fullName: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+        {
+          email: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+        {
+          studentDetails: {
+            is: {
+              studentNumber: {
+                contains: search,
+                mode: "insensitive",
+              },
+            },
+          },
+        },
+      ],
+    };
+  }
+
+  const orderBy =
+    sortBy === "enrolledAt"
+      ? { enrolledAt: sortOrder }
+      : { student: { fullName: sortOrder } };
+
+  const skip = (page - 1) * limit;
+
+  return Promise.all([
+    prisma.enrollment.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy,
+      select: {
+        id: true,
+        enrolledAt: true,
+        isActive: true,
+        student: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phone: true,
+            studentDetails: {
+              select: {
+                studentNumber: true,
+              },
+            },
+          },
+        },
+      },
+    }),
+
+    prisma.enrollment.count({ where }),
+  ]);
 }
