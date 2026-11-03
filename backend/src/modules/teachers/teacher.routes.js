@@ -3,7 +3,9 @@ import authenticate from "../../middleware/authenticate.js";
 import authorizeRoles from "../../middleware/authorize.js";
 import validate from "../../middleware/validate.js";
 import * as controller from "./teacher.controller.js";
-import { profileUpdateSchema } from "./teacher.validation.js";
+import { profileUpdateSchema,  classParamSchema,
+classStudentParamSchema,
+} from "./teacher.validation.js";
 
 const router = Router();
 
@@ -22,4 +24,15 @@ router.get("/profile/subjects", controller.subjects);
 
 router.get("/classes",controller.assignedClasses)
 router.get("/classes/:classid",controller.assignedClass)
+router.get(
+  "/classes/:classId/students",
+  validate(classParamSchema, "params"),
+  controller.classStudents,
+);
+
+router.get(
+  "/classes/:classId/students/:studentId",
+  validate(classStudentParamSchema, "params"),
+  controller.classStudent,
+);
 export default router;

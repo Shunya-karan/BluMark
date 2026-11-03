@@ -258,3 +258,96 @@ export function findAssignedClassById(
     },
   });
 }
+
+export async function findClassStudents(teacherId, institutionId, classId) {
+  return prisma.enrollment.findMany({
+    where: {
+      institutionId,
+      classId,
+      isActive: true,
+      student: {
+        institutionId,
+        role: "STUDENT",
+        isActive: true,
+      },
+      schoolClass: {
+        isActive: true,
+        subjects: {
+          some: {
+            teacherId,
+            institutionId,
+          },
+        },
+      },
+    },
+    select: {
+      id: true,
+      enrolledAt: true,
+      student: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phone: true,
+          studentDetails: {
+            select: {
+              studentNumber: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      student: {
+        fullName: "asc",
+      },
+    },
+  });
+}
+
+export async function findClassStudentById(
+  teacherId,
+  institutionId,
+  classId,
+  studentId,
+) {
+  return prisma.enrollment.findFirst({
+    where: {
+      institutionId,
+      classId,
+      studentId,
+      isActive: true,
+      student: {
+        institutionId,
+        role: "STUDENT",
+        isActive: true,
+      },
+      schoolClass: {
+        isActive: true,
+        subjects: {
+          some: {
+            teacherId,
+            institutionId,
+          },
+        },
+      },
+    },
+    select: {
+      id: true,
+      enrolledAt: true,
+      student: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phone: true,
+          studentDetails: {
+            select: {
+              studentNumber: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}

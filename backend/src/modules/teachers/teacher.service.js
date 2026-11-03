@@ -186,3 +186,71 @@ export async function getAssignedClassById(user, classId) {
 
   return schoolClass;
 }
+
+export async function getClassStudents(user, classId) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const schoolClass = await repository.findAssignedClassById(
+    teacherId,
+    institutionId,
+    classId,
+  );
+
+  if (!schoolClass) {
+    throw new AppError(
+      "Class not found or you are not assigned to this class",
+      404,
+    );
+  }
+
+  const enrollments = await repository.findClassStudents(
+    teacherId,
+    institutionId,
+    classId,
+  );
+
+  return {
+    class: schoolClass,
+    totalStudents: enrollments.length,
+    students: enrollments.map((enrollment) => ({
+      enrollmentId: enrollment.id,
+      enrolledAt: enrollment.enrolledAt,
+      ...enrollment.student,
+    })),
+  };
+}
+
+export async function getClassStudentById(user, classId, studentId) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const schoolClass = await repository.findAssignedClassById(
+    teacherId,
+    institutionId,
+    classId,
+  );
+
+  if (!schoolClass) {
+    throw new AppError(
+      "Class not found or you are not assigned to this class",
+      404,
+    );
+  }
+
+  const enrollment = await repository.findClassStudentById(
+    teacherId,
+    institutionId,
+    classId,
+    studentId,
+  );
+
+  if (!enrollment) {
+    throw new AppError("Student not found in this class", 404);
+  }
+
+  return {
+    class: schoolClass,
+    enrollmentId: enrollment.id,
+    enrolledAt: enrollment.enrolledAt,
+    student: enrollment.student,
+  };
+}

@@ -73,3 +73,33 @@ export const assignedClass = catchAsync(async (req, res) => {
     data,
   );
 });
+
+
+export const classStudents = catchAsync(async (req, res) => {
+  const data = await service.getClassStudents(
+    req.user,
+    req.params.classId,
+  );
+
+  return sendResponse(
+    res,
+    200,
+    "Class students retrieved successfully",
+    data,
+  );
+});
+
+export const classStudent = catchAsync(async (req, res) => {
+  const data = await service.getClassStudentById(
+    req.user,
+    req.params.classId,
+    req.params.studentId,
+  );
+
+  return sendResponse(
+    res,
+    200,
+    "Class student details retrieved successfully",
+    data,
+  );
+});

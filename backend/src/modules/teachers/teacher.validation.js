@@ -13,3 +13,8 @@ export const profileUpdateSchema = z.object({
 export const classParamSchema = z.object({
   classId: z.string().uuid("Invalid class ID"),
 });
+
+export const classStudentParamSchema = z.object({
+  classId: z.string().uuid("Invalid class ID"),
+  studentId: z.string().uuid("Invalid student ID"),
+});

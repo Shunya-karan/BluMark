@@ -73,9 +73,8 @@ export const teacherOpenApi = {
   get: protectedOperation(
     "Get all classes assigned to the authenticated teacher",
   ),
-},
-
-"/api/v1/teacher/classes/{classId}": {
+    },
+  "/api/v1/teacher/classes/{classId}": {
   get: protectedOperation(
     "Get details of a specific class assigned to the authenticated teacher",
     {
@@ -93,8 +92,40 @@ export const teacherOpenApi = {
       ],
     },
   ),
+    },
+   "/api/v1/teacher/classes/{classId}/students": {
+  get: protectedOperation("Get enrolled students in an assigned class", {
+    parameters: [
+      {
+        in: "path",
+        name: "classId",
+        required: true,
+        schema: { type: "string", format: "uuid" },
+      },
+    ],
+  }),
+    },
+
+"/api/v1/teacher/classes/{classId}/students/{studentId}": {
+  get: protectedOperation("Get a student's details within an assigned class", {
+    parameters: [
+      {
+        in: "path",
+        name: "classId",
+        required: true,
+        schema: { type: "string", format: "uuid" },
+      },
+      {
+        in: "path",
+        name: "studentId",
+        required: true,
+        schema: { type: "string", format: "uuid" },
+      },
+    ],
+  }),
+    },
+  
 },
-  },
   components: {
     schemas: {
       TeacherProfileUpdate: {
