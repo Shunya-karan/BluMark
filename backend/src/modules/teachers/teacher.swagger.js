@@ -1,33 +1,55 @@
 const ref = (name) => ({ $ref: `#/components/schemas/${name}` });
 
-const protectedOperation = (summary, options = {}) => ({
-  tags: ["Teacher"],
-  summary,
-  security: [{ bearerAuth: [] }],
-  ...options,
-  responses: {
-    200: {
-      description: "Successful response",
-      content: { "application/json": { schema: ref("ApiResponse") } },
+
+const protectedOperation = (summary, options = {}) => {
+  const { responses: customResponses = {}, ...operationOptions } = options;
+
+  return {
+    tags: ["Teacher"],
+    summary,
+    security: [{ bearerAuth: [] }],
+    ...operationOptions,
+    responses: {
+      200: {
+        description: "Successful response",
+        content: {
+          "application/json": { schema: ref("ApiResponse") },
+        },
+      },
+      201: {
+        description: "Resource created successfully",
+        content: {
+          "application/json": { schema: ref("ApiResponse") },
+        },
+      },
+      400: {
+        description: "Invalid request",
+        content: {
+          "application/json": { schema: ref("ApiError") },
+        },
+      },
+      401: {
+        description: "Missing or invalid JWT",
+        content: {
+          "application/json": { schema: ref("ApiError") },
+        },
+      },
+      403: {
+        description: "Teacher role required or account is restricted",
+        content: {
+          "application/json": { schema: ref("ApiError") },
+        },
+      },
+      404: {
+        description: "Resource not found",
+        content: {
+          "application/json": { schema: ref("ApiError") },
+        },
+      },
+      ...customResponses,
     },
-    400: {
-      description: "Invalid request",
-      content: { "application/json": { schema: ref("ApiError") } },
-    },
-    401: {
-      description: "Missing or invalid JWT",
-      content: { "application/json": { schema: ref("ApiError") } },
-    },
-    403: {
-      description: "Teacher role required or account is restricted",
-      content: { "application/json": { schema: ref("ApiError") } },
-    },
-    404: {
-      description: "Resource not found",
-      content: { "application/json": { schema: ref("ApiError") } },
-    },
-  },
-});
+  };
+};
 
 export const teacherOpenApi = {
   tags: [
@@ -270,7 +292,7 @@ export const teacherOpenApi = {
 // MODULE 4: ATTENDANCE HISTORY
 // ==========================================
 
-"/api/v1/teacher/attendance/history": {
+  "/api/v1/teacher/attendance/history": {
   get: protectedOperation(
     "Get paginated attendance history for the authenticated teacher",
     {
@@ -294,7 +316,7 @@ export const teacherOpenApi = {
       ],
     },
   ),
-},
+  },
 
 "/api/v1/teacher/attendance/sessions/{sessionId}": {
   get: protectedOperation(
@@ -346,9 +368,8 @@ export const teacherOpenApi = {
   ),
 },
 
-// ==========================================
+
 // MODULE 5: TEACHER TIMETABLE
-// ==========================================
 
 "/api/v1/teacher/timetable": {
   get: protectedOperation(
@@ -377,11 +398,9 @@ export const teacherOpenApi = {
   ),
 },
 
-// ==========================================
 // MODULE 6: STUDY MATERIALS
-// ==========================================
 
-"/api/v1/teacher/study-materials": {
+  "/api/v1/teacher/study-materials": {
   get: protectedOperation(
     "Get paginated study materials uploaded by the teacher",
     {
@@ -413,7 +432,7 @@ export const teacherOpenApi = {
   ),
 },
 
-"/api/v1/teacher/study-materials/{materialId}": {
+  "/api/v1/teacher/study-materials/{materialId}": {
   get: protectedOperation(
     "Get details of a specific study material uploaded by the teacher",
     {
@@ -425,6 +444,32 @@ export const teacherOpenApi = {
           schema: { type: "string", format: "uuid" },
         },
       ],
+    },
+  ),
+},
+
+  "/api/v1/teacher/attendance/sessions": {
+  post: protectedOperation(
+    "Start a new attendance session for an assigned subject",
+    {
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: ref("CreateAttendanceSession"),
+          },
+        },
+      },
+      responses: {
+        409: {
+          description: "Another attendance session is already active. Stop it before starting a new session.",
+          content: {
+            "application/json": {
+              schema: ref("ApiError"),
+            },
+          },
+        },
+      },
     },
   ),
 },

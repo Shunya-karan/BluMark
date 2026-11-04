@@ -19,6 +19,8 @@ import {
   timetableWeekdaySchema,
   studyMaterialParamSchema,
   studyMaterialQuerySchema,
+  createAttendanceSessionSchema,
+
 } from "./teacher.validation.js";
 
 const router = Router();
@@ -85,7 +87,7 @@ router.get(
   controller.assignedClass,
 );
 
-// MODULE 1: CLASS SUBJECTS
+// CLASS SUBJECTS
 
 router.get(
   "/classes/:classId/subjects",
@@ -99,7 +101,7 @@ router.get(
   controller.classSubject,
 );
 
-// MODULE 2: CLASS STATISTICS
+// CLASS STATISTICS
 
 router.get(
   "/classes/:classId/statistics",
@@ -107,7 +109,7 @@ router.get(
   controller.classStatistics,
 );
 
-// MODULE 3: STUDENT DIRECTORY
+// STUDENT DIRECTORY
 
 // Paginated and searchable student directory.
 // Keep this route separate from the existing /students endpoint.
@@ -133,7 +135,7 @@ router.get(
   controller.classStudent,
 );
 
-// MODULE 4: ATTENDANCE HISTORY
+// ATTENDANCE HISTORY
 
 router.get(
   "/attendance/history",
@@ -154,7 +156,7 @@ router.get(
   controller.sessionAttendanceRecords,
 );
 
-// MODULE 5: TEACHER TIMETABLE
+// TEACHER TIMETABLE
 
 router.get(
   "/timetable",
@@ -167,7 +169,7 @@ router.get(
   controller.timetableByWeekday,
 );
 
-// MODULE 6: STUDY MATERIALS
+//  STUDY MATERIALS
 
 router.get(
   "/study-materials",
@@ -179,5 +181,12 @@ router.get(
   "/study-materials/:materialId",
   validate(studyMaterialParamSchema, "params"),
   controller.studyMaterialDetails,
+);
+// ATTENDANCE SESSION MANAGEMENT
+
+router.post(
+  "/attendance/sessions",
+  validate(createAttendanceSessionSchema),
+  controller.createAttendanceSession,
 );
 export default router;

@@ -523,7 +523,7 @@ export async function getClassStatistics(
 }
 
 
-// MODULE 3: PAGINATED STUDENT DIRECTORY
+//  PAGINATED STUDENT DIRECTORY
 
 
 export function findClassStudentsPaginated({
@@ -633,8 +633,7 @@ export function findClassStudentsPaginated({
 }
 
 
-// MODULE 4: TEACHER ATTENDANCE HISTORY
-// ==========================================
+//TEACHER ATTENDANCE HISTORY
 
 export function findTeacherAttendanceSessions({
   teacherId,
@@ -804,8 +803,7 @@ export function findSessionAttendanceRecords({
   ]);
 }
 
-// ==========================================
-// MODULE 5: TEACHER TIMETABLE
+//  TEACHER TIMETABLE
 
 export function findTeacherWeeklyTimetable(
   teacherId,
@@ -914,9 +912,7 @@ export function findTeacherTimetableByWeekday(
   });
 }
 
-// ==========================================
-// MODULE 6: TEACHER STUDY MATERIALS
-// ==========================================
+//TEACHER STUDY MATERIALS
 
 export function findTeacherStudyMaterials({
   teacherId,
@@ -1049,6 +1045,208 @@ export function findTeacherStudyMaterialById(
           },
         },
       },
+    },
+  });
+}
+
+
+// TEACHER ATTENDANCE SESSION MANAGEMENT
+
+export function findTeacherClassSubject(
+  teacherId,
+  institutionId,
+  classSubjectId,
+) {
+  return prisma.classSubject.findFirst({
+    where: {
+      id: classSubjectId,
+      teacherId,
+      institutionId,
+      schoolClass: {
+        isActive: true,
+      },
+      subject: {
+        isActive: true,
+      },
+    },
+    select: {
+      id: true,
+      classId: true,
+      subjectId: true,
+      teacherId: true,
+      subject: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+        },
+      },
+      schoolClass: {
+        select: {
+          id: true,
+          name: true,
+          division: true,
+          academicYear: true,
+        },
+      },
+    },
+  });
+}
+
+export async function createTeacherAttendanceSession({
+  teacherId,
+  institutionId,
+  classSubjectId,
+  timetableSlotId,
+  sessionCode,
+  bleTokenSeed,
+  startsAt,
+  expiresAt,
+}) {
+  return prisma.$transaction(async (tx) => {
+    // Lock session creation for this teacher.
+    await tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(
+        hashtextextended(${teacherId}, 0)
+      )
+    `;
+
+    const now = new Date();
+
+    // Automatically expire sessions whose expiry time has passed.
+    await tx.attendanceSession.updateMany({
+      where: {
+        teacherId,
+        institutionId,
+        status: "ACTIVE",
+        expiresAt: {
+          lte: now,
+        },
+      },
+      data: {
+        status: "EXPIRED",
+        endedAt: now,
+      },
+    });
+
+    // Check whether this teacher already has an active session.
+    const activeSession = await tx.attendanceSession.findFirst({
+      where: {
+        teacherId,
+        institutionId,
+        status: "ACTIVE",
+      },
+      select: {
+        id: true,
+        sessionCode: true,
+        status: true,
+        startsAt: true,
+        expiresAt: true,
+        classSubject: {
+          select: {
+            subject: {
+              select: {
+                name: true,
+              },
+            },
+            schoolClass: {
+              select: {
+                name: true,
+                division: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (activeSession) {
+      return {
+        conflict: true,
+        activeSession,
+      };
+    }
+
+    // Create the new active attendance session.
+    const session = await tx.attendanceSession.create({
+      data: {
+        institutionId,
+        teacherId,
+        classSubjectId,
+        timetableSlotId,
+        sessionCode,
+        bleTokenSeed,
+        startsAt,
+        expiresAt,
+        status: "ACTIVE",
+      },
+      select: {
+        id: true,
+        sessionCode: true,
+        status: true,
+        startsAt: true,
+        expiresAt: true,
+        classSubject: {
+          select: {
+            id: true,
+            subject: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
+            schoolClass: {
+              select: {
+                id: true,
+                name: true,
+                division: true,
+                academicYear: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      conflict: false,
+      session,
+    };
+  });
+}
+
+
+export function findTeacherTimetableSlot(
+  teacherId,
+  institutionId,
+  classSubjectId,
+  timetableSlotId,
+) {
+  return prisma.timetableSlot.findFirst({
+    where: {
+      id: timetableSlotId,
+      institutionId,
+      isActive: true,
+      classSubjectId,
+      classSubject: {
+        teacherId,
+        institutionId,
+        schoolClass: {
+          isActive: true,
+        },
+        subject: {
+          isActive: true,
+        },
+      },
+    },
+    select: {
+      id: true,
+      classSubjectId: true,
+      weekday: true,
+      startTime: true,
+      endTime: true,
+      room: true,
     },
   });
 }

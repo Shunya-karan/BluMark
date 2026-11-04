@@ -1,10 +1,8 @@
 
 import * as repository from "./teacher.repository.js";
 import AppError from "../../utils/AppError.js";
-
-// ==========================================
+import { randomBytes } from "node:crypto";
 // COMMON HELPERS
-// ==========================================
 
 function getTeacherIdentity(user) {
   if (!user?.id || !user?.institutionId || user.role !== "TEACHER") {
@@ -57,11 +55,7 @@ async function verifyAssignedClass(user, classId) {
     schoolClass,
   };
 }
-
-// ==========================================
 // TEACHER PROFILE
-// ==========================================
-
 export async function getProfile(user) {
   const { profile } = await teacherContext(user);
   return profile;
@@ -94,9 +88,7 @@ export async function getSubjects(user) {
   );
 }
 
-// ==========================================
 // TEACHER DASHBOARD
-// ==========================================
 
 export async function getSummary(user) {
   const { teacherId, institutionId } = await teacherContext(user);
@@ -233,9 +225,7 @@ export async function getDashboard(user) {
   };
 }
 
-// ==========================================
 // ASSIGNED CLASSES
-// ==========================================
 
 export async function getAssignedClasses(user) {
   const { teacherId, institutionId } = await teacherContext(user);
@@ -254,9 +244,7 @@ export async function getAssignedClassById(user, classId) {
   return schoolClass;
 }
 
-// ==========================================
 // EXISTING CLASS STUDENTS
-// ==========================================
 
 export async function getClassStudents(user, classId) {
   const { teacherId, institutionId, schoolClass } =
@@ -306,9 +294,7 @@ export async function getClassStudentById(
   };
 }
 
-// ==========================================
-// MODULE 1: CLASS SUBJECTS
-// ==========================================
+// CLASS SUBJECTS
 
 export async function getClassSubjects(user, classId) {
   const { teacherId, institutionId, schoolClass } =
@@ -356,9 +342,7 @@ export async function getClassSubjectById(
   };
 }
 
-// ==========================================
 // MODULE 2: CLASS STATISTICS
-// ==========================================
 
 export async function getClassStatistics(user, classId) {
   const { teacherId, institutionId, schoolClass } =
@@ -375,10 +359,7 @@ export async function getClassStatistics(user, classId) {
     statistics,
   };
 }
-
-// ==========================================
 // MODULE 3: PAGINATED STUDENT DIRECTORY
-// ==========================================
 
 export async function getClassStudentsPaginated(
   user,
@@ -437,11 +418,7 @@ export async function getClassStudentsPaginated(
   };
 }
 
-
-
-// ==========================================
-// MODULE 4: TEACHER ATTENDANCE HISTORY
-// ==========================================
+//  TEACHER ATTENDANCE HISTORY
 
 export async function getAttendanceHistory(user, query) {
   const { teacherId, institutionId } = await teacherContext(user);
@@ -550,9 +527,7 @@ export async function getSessionAttendanceRecords(
   };
 }
 
-// ==========================================
 // MODULE 5: TEACHER TIMETABLE
-// ==========================================
 
 export async function getWeeklyTimetable(user) {
   const { teacherId, institutionId } = await teacherContext(user);
@@ -612,9 +587,7 @@ export async function getTimetableByWeekday(user, weekday) {
   };
 }
 
-// ==========================================
 // MODULE 6: TEACHER STUDY MATERIALS
-// ==========================================
 
 export async function getTeacherStudyMaterials(user, query) {
   const { teacherId, institutionId } = await teacherContext(user);
@@ -672,4 +645,83 @@ export async function getTeacherStudyMaterialById(user, materialId) {
   }
 
   return material;
+}
+
+
+// ATTENDANCE SESSION MANAGEMENT
+
+export async function createAttendanceSession(user, data) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const {
+    classSubjectId,
+    timetableSlotId,
+    durationMinutes = 60,
+  } = data;
+
+  // 1. Verify teacher's subject assignment.
+  const assignment = await repository.findTeacherClassSubject(
+    teacherId,
+    institutionId,
+    classSubjectId,
+  );
+
+  if (!assignment) {
+    throw new AppError(
+      "Subject not found or you are not assigned to teach it",
+      404,
+    );
+  }
+
+  // 2. Verify optional timetable slot.
+  if (timetableSlotId) {
+    const slot = await repository.findTeacherTimetableSlot(
+      teacherId,
+      institutionId,
+      classSubjectId,
+      timetableSlotId,
+    );
+
+    if (!slot) {
+      throw new AppError(
+        "Timetable slot not found or does not belong to this subject",
+        404,
+      );
+    }
+  }
+
+  // 3. Generate secure session credentials.
+  const sessionCode = randomBytes(9).toString("base64url");
+  const bleTokenSeed = randomBytes(32).toString("hex");
+
+  // 4. Calculate session expiry.
+  const startsAt = new Date();
+
+  const expiresAt = new Date(
+    startsAt.getTime() + durationMinutes * 60 * 1000,
+  );
+
+  // 5. Create session with concurrency protection.
+  const result = await repository.createTeacherAttendanceSession({
+    teacherId,
+    institutionId,
+    classSubjectId,
+    timetableSlotId: timetableSlotId ?? null,
+    sessionCode,
+    bleTokenSeed,
+    startsAt,
+    expiresAt,
+  });
+
+  if (result.conflict) {
+    throw new AppError(
+      "Please stop your current attendance session before starting a new one.",
+      409,
+    );
+  }
+
+  return {
+    message: "Attendance session started successfully",
+    session: result.session,
+  };
 }

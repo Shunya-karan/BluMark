@@ -110,9 +110,7 @@ export const subjects = catchAsync(async (req, res) => {
   );
 });
 
-// ==========================================
 // ASSIGNED CLASSES
-// ==========================================
 
 export const assignedClasses = catchAsync(async (req, res) => {
   const data = await service.getAssignedClasses(req.user);
@@ -139,9 +137,7 @@ export const assignedClass = catchAsync(async (req, res) => {
   );
 });
 
-// ==========================================
 // EXISTING CLASS STUDENTS
-// ==========================================
 
 export const classStudents = catchAsync(async (req, res) => {
   const data = await service.getClassStudents(
@@ -172,9 +168,8 @@ export const classStudent = catchAsync(async (req, res) => {
   );
 });
 
-// ==========================================
-// MODULE 1: CLASS SUBJECTS
-// ==========================================
+// CLASS SUBJECTS
+
 
 export const classSubjects = catchAsync(async (req, res) => {
   const data = await service.getClassSubjects(
@@ -205,9 +200,6 @@ export const classSubject = catchAsync(async (req, res) => {
   );
 });
 
-// ==========================================
-// MODULE 2: CLASS STATISTICS
-// ==========================================
 
 export const classStatistics = catchAsync(async (req, res) => {
   const data = await service.getClassStatistics(
@@ -223,9 +215,7 @@ export const classStatistics = catchAsync(async (req, res) => {
   );
 });
 
-// ==========================================
-// MODULE 3: PAGINATED STUDENT DIRECTORY
-// ==========================================
+//  PAGINATED STUDENT DIRECTORY
 
 export const classStudentDirectory = catchAsync(async (req, res) => {
   const data = await service.getClassStudentsPaginated(
@@ -244,9 +234,7 @@ export const classStudentDirectory = catchAsync(async (req, res) => {
 
 
 
-// ==========================================
-// MODULE 4: ATTENDANCE HISTORY
-// ==========================================
+// ATTENDANCE HISTORY
 
 export const attendanceHistory = catchAsync(async (req, res) => {
   const data = await service.getAttendanceHistory(
@@ -295,9 +283,7 @@ export const sessionAttendanceRecords = catchAsync(
   },
 );
 
-// ==========================================
-// MODULE 5: TIMETABLE
-// ==========================================
+// TIMETABLE
 
 export const weeklyTimetable = catchAsync(async (req, res) => {
   const data = await service.getWeeklyTimetable(req.user);
@@ -318,9 +304,7 @@ export const timetableByWeekday = catchAsync(async (req, res) => {
 
   return sendResponse(res, 200, "Timetable retrieved successfully", data);
 });
-// ==========================================
-// MODULE 6: STUDY MATERIALS
-// ==========================================
+//  STUDY MATERIALS
 
 export const studyMaterials = catchAsync(async (req, res) => {
   const data = await service.getTeacherStudyMaterials(
@@ -347,5 +331,21 @@ export const studyMaterialDetails = catchAsync(async (req, res) => {
     200,
     "Study material details retrieved successfully",
     data,
+  );
+});
+
+
+
+export const createAttendanceSession = catchAsync(async (req, res) => {
+  const data = await service.createAttendanceSession(
+    req.user,
+    req.body,
+  );
+
+  return sendResponse(
+    res,
+    201,
+    "Attendance session started successfully",
+    data.session,
   );
 });

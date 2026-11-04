@@ -20,18 +20,15 @@ export const classStudentParamSchema = z.object({
 });
 
 
-// ==========================================
 // TEACHER SUBJECT VALIDATION
-// ==========================================
 
 export const classSubjectParamSchema = z.object({
   classId: z.string().uuid("Invalid class ID"),
   subjectId: z.string().uuid("Invalid subject ID"),
 });
 
-// ==========================================
 // TEACHER STUDENT DIRECTORY QUERY VALIDATION
-// ==========================================
+
 
 export const studentDirectoryQuerySchema = z.object({
   page: z.coerce
@@ -63,9 +60,7 @@ export const studentDirectoryQuerySchema = z.object({
 });
 
 
-// ==========================================
-// MODULE 4: ATTENDANCE HISTORY VALIDATION
-// ==========================================
+// ATTENDANCE HISTORY VALIDATION
 
 export const attendanceHistoryQuerySchema = z.object({
   page: z.coerce
@@ -107,9 +102,7 @@ export const sessionAttendanceQuerySchema = z.object({
     .optional(),
 });
 
-// ==========================================
-// MODULE 5: TIMETABLE VALIDATION
-// ==========================================
+//  TIMETABLE VALIDATION
 
 export const timetableWeekdaySchema = z.object({
   weekday: z.coerce
@@ -119,9 +112,7 @@ export const timetableWeekdaySchema = z.object({
     .max(7, "Weekday must be between 1 and 7"),
 });
 
-// ==========================================
-// MODULE 6: STUDY MATERIAL VALIDATION
-// ==========================================
+// STUDY MATERIAL VALIDATION
 
 export const studyMaterialParamSchema = z.object({
   materialId: z.string().uuid("Invalid study material ID"),
@@ -147,4 +138,28 @@ export const studyMaterialQuerySchema = z.object({
     .default(""),
 
   classId: z.string().uuid("Invalid class ID").optional(),
+});
+
+export const createAttendanceSessionSchema = z.object({
+  classSubjectId: z
+    .string()
+    .uuid("Invalid class subject ID"),
+
+  timetableSlotId: z
+    .string()
+    .uuid("Invalid timetable slot ID")
+    .optional(),
+
+  durationMinutes: z.coerce
+    .number()
+    .int("Duration must be a whole number")
+    .min(1, "Session duration must be at least 1 minute")
+    .max(240, "Session duration cannot exceed 240 minutes")
+    .default(60),
+});
+
+export const sessionIdParamSchema = z.object({
+  sessionId: z
+    .string()
+    .uuid("Invalid attendance session ID"),
 });
