@@ -1050,8 +1050,136 @@ export function findTeacherStudyMaterialById(
 }
 
 
-// TEACHER ATTENDANCE SESSION MANAGEMENT
+// export async function endTeacherAttendanceSession({
+//   teacherId,
+//   institutionId,
+//   sessionId,
+// }) {
+//   return prisma.$transaction(async (tx) => {
+//     const session = await tx.attendanceSession.findFirst({
+//       where: {
+//         id: sessionId,
+//         teacherId,
+//         institutionId,
+//       },
+//       select: {
+//         id: true,
+//         status: true,
+//         expiresAt: true,
+//       },
+//     });
 
+//     if (!session) {
+//       return { notFound: true };
+//     }
+
+//     if (session.status !== "ACTIVE") {
+//       return {
+//         conflict: true,
+//         status: session.status,
+//       };
+//     }
+
+//     const now = new Date();
+
+//     // An overdue session should be expired, not completed.
+//     if (session.expiresAt <= now) {
+//       await tx.attendanceSession.updateMany({
+//         where: {
+//           id: sessionId,
+//           teacherId,
+//           institutionId,
+//           status: "ACTIVE",
+//         },
+//         data: {
+//           status: "EXPIRED",
+//           endedAt: now,
+//         },
+//       });
+
+//       return {
+//         conflict: true,
+//         status: "EXPIRED",
+//       };
+//     }
+
+//     const result = await tx.attendanceSession.updateMany({
+//       where: {
+//         id: sessionId,
+//         teacherId,
+//         institutionId,
+//         status: "ACTIVE",
+//       },
+//       data: {
+//         status: "COMPLETED",
+//         endedAt: now,
+//       },
+//     });
+
+//     if (result.count === 0) {
+//       return {
+//         conflict: true,
+//         status: "ALREADY_ENDED",
+//       };
+//     }
+
+//     const updatedSession = await tx.attendanceSession.findFirst({
+//       where: {
+//         id: sessionId,
+//         teacherId,
+//         institutionId,
+//       },
+//       select: {
+//         id: true,
+//         sessionCode: true,
+//         status: true,
+//         startsAt: true,
+//         expiresAt: true,
+//         endedAt: true,
+//         classSubject: {
+//           select: {
+//             subject: {
+//               select: {
+//                 id: true,
+//                 name: true,
+//                 code: true,
+//               },
+//             },
+//             schoolClass: {
+//               select: {
+//                 id: true,
+//                 name: true,
+//                 division: true,
+//               },
+//             },
+//           },
+//         },
+//       },
+//     });
+
+//     return {
+//       conflict: false,
+//       session: updatedSession,
+//     };
+//   });
+// }
+
+
+
+ // ATTENDANCE SESSION MANAGEMENT
+
+async function lockTeacherSession(tx, teacherId) {
+  await tx.$queryRaw`
+    SELECT 1::int AS locked
+    FROM (
+      SELECT pg_advisory_xact_lock(
+        hashtextextended(${teacherId}, 0)
+      )
+    ) AS lock_result
+  `;
+}
+
+// Find teacher's assigned subject.
 export function findTeacherClassSubject(
   teacherId,
   institutionId,
@@ -1062,12 +1190,8 @@ export function findTeacherClassSubject(
       id: classSubjectId,
       teacherId,
       institutionId,
-      schoolClass: {
-        isActive: true,
-      },
-      subject: {
-        isActive: true,
-      },
+      schoolClass: { isActive: true },
+      subject: { isActive: true },
     },
     select: {
       id: true,
@@ -1093,6 +1217,38 @@ export function findTeacherClassSubject(
   });
 }
 
+// Verify optional timetable slot.
+export function findTeacherTimetableSlot(
+  teacherId,
+  institutionId,
+  classSubjectId,
+  timetableSlotId,
+) {
+  return prisma.timetableSlot.findFirst({
+    where: {
+      id: timetableSlotId,
+      institutionId,
+      classSubjectId,
+      isActive: true,
+      classSubject: {
+        teacherId,
+        institutionId,
+        schoolClass: { isActive: true },
+        subject: { isActive: true },
+      },
+    },
+    select: {
+      id: true,
+      classSubjectId: true,
+      weekday: true,
+      startTime: true,
+      endTime: true,
+      room: true,
+    },
+  });
+}
+
+// Create and start attendance session.
 export async function createTeacherAttendanceSession({
   teacherId,
   institutionId,
@@ -1104,24 +1260,18 @@ export async function createTeacherAttendanceSession({
   expiresAt,
 }) {
   return prisma.$transaction(async (tx) => {
-    // Lock session creation for this teacher.
-    await tx.$queryRaw`
-      SELECT pg_advisory_xact_lock(
-        hashtextextended(${teacherId}, 0)
-      )
-    `;
+    // Serialize session creation for this teacher.
+    await lockTeacherSession(tx, teacherId);
 
     const now = new Date();
 
-    // Automatically expire sessions whose expiry time has passed.
+    // Expire any overdue active sessions.
     await tx.attendanceSession.updateMany({
       where: {
         teacherId,
         institutionId,
         status: "ACTIVE",
-        expiresAt: {
-          lte: now,
-        },
+        expiresAt: { lte: now },
       },
       data: {
         status: "EXPIRED",
@@ -1129,7 +1279,7 @@ export async function createTeacherAttendanceSession({
       },
     });
 
-    // Check whether this teacher already has an active session.
+    // Enforce one active session per teacher.
     const activeSession = await tx.attendanceSession.findFirst({
       where: {
         teacherId,
@@ -1138,16 +1288,13 @@ export async function createTeacherAttendanceSession({
       },
       select: {
         id: true,
-        sessionCode: true,
         status: true,
         startsAt: true,
         expiresAt: true,
         classSubject: {
           select: {
             subject: {
-              select: {
-                name: true,
-              },
+              select: { name: true },
             },
             schoolClass: {
               select: {
@@ -1167,13 +1314,12 @@ export async function createTeacherAttendanceSession({
       };
     }
 
-    // Create the new active attendance session.
     const session = await tx.attendanceSession.create({
       data: {
         institutionId,
         teacherId,
         classSubjectId,
-        timetableSlotId,
+        timetableSlotId: timetableSlotId ?? null,
         sessionCode,
         bleTokenSeed,
         startsAt,
@@ -1216,37 +1362,748 @@ export async function createTeacherAttendanceSession({
   });
 }
 
-
-export function findTeacherTimetableSlot(
+// End an active attendance session.
+export async function endTeacherAttendanceSession({
   teacherId,
   institutionId,
-  classSubjectId,
-  timetableSlotId,
-) {
-  return prisma.timetableSlot.findFirst({
-    where: {
-      id: timetableSlotId,
-      institutionId,
-      isActive: true,
-      classSubjectId,
-      classSubject: {
+  sessionId,
+}) {
+  return prisma.$transaction(async (tx) => {
+    await lockTeacherSession(tx, teacherId);
+
+    const session = await tx.attendanceSession.findFirst({
+      where: {
+        id: sessionId,
         teacherId,
         institutionId,
-        schoolClass: {
-          isActive: true,
+      },
+      select: {
+        id: true,
+        status: true,
+        expiresAt: true,
+      },
+    });
+
+    if (!session) {
+      return { notFound: true };
+    }
+
+    if (session.status !== "ACTIVE") {
+      return {
+        conflict: true,
+        status: session.status,
+      };
+    }
+
+    const now = new Date();
+
+    const newStatus =
+      session.expiresAt <= now ? "EXPIRED" : "COMPLETED";
+
+    await tx.attendanceSession.update({
+      where: {
+        id: sessionId,
+      },
+      data: {
+        status: newStatus,
+        endedAt: now,
+      },
+    });
+
+    if (newStatus === "EXPIRED") {
+      return {
+        conflict: true,
+        status: "EXPIRED",
+      };
+    }
+
+    const updatedSession = await tx.attendanceSession.findFirst({
+      where: {
+        id: sessionId,
+        teacherId,
+        institutionId,
+      },
+      select: {
+        id: true,
+        sessionCode: true,
+        status: true,
+        startsAt: true,
+        expiresAt: true,
+        endedAt: true,
+        classSubject: {
+          select: {
+            subject: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
+            schoolClass: {
+              select: {
+                id: true,
+                name: true,
+                division: true,
+              },
+            },
+          },
         },
-        subject: {
+      },
+    });
+
+    return {
+      conflict: false,
+      session: updatedSession,
+    };
+  });
+}
+
+// Get live attendance session details.
+export async function findTeacherLiveAttendanceSession({
+  teacherId,
+  institutionId,
+  sessionId,
+}) {
+  return prisma.$transaction(async (tx) => {
+    await lockTeacherSession(tx, teacherId);
+
+    const session = await tx.attendanceSession.findFirst({
+      where: {
+        id: sessionId,
+        teacherId,
+        institutionId,
+      },
+      select: {
+        id: true,
+        sessionCode: true,
+        status: true,
+        startsAt: true,
+        expiresAt: true,
+        endedAt: true,
+      },
+    });
+
+    if (!session) {
+      return null;
+    }
+
+    const now = new Date();
+
+    if (
+      session.status === "ACTIVE" &&
+      session.expiresAt <= now
+    ) {
+      await tx.attendanceSession.update({
+        where: { id: sessionId },
+        data: {
+          status: "EXPIRED",
+          endedAt: now,
+        },
+      });
+
+      session.status = "EXPIRED";
+      session.endedAt = now;
+    }
+
+    const [details, attendanceGroups] = await Promise.all([
+      tx.attendanceSession.findFirst({
+        where: {
+          id: sessionId,
+          teacherId,
+          institutionId,
+        },
+        select: {
+          id: true,
+          sessionCode: true,
+          status: true,
+          startsAt: true,
+          expiresAt: true,
+          endedAt: true,
+          classSubject: {
+            select: {
+              id: true,
+              subject: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true,
+                },
+              },
+              schoolClass: {
+                select: {
+                  id: true,
+                  name: true,
+                  division: true,
+                  academicYear: true,
+                },
+              },
+            },
+          },
+          _count: {
+            select: {
+              records: true,
+            },
+          },
+        },
+      }),
+
+      tx.attendanceRecord.groupBy({
+        by: ["status"],
+        where: {
+          institutionId,
+          sessionId,
+        },
+        _count: {
+          _all: true,
+        },
+      }),
+    ]);
+
+    const counts = Object.fromEntries(
+      attendanceGroups.map((item) => [
+        item.status,
+        item._count._all,
+      ]),
+    );
+
+    const present = counts.PRESENT ?? 0;
+    const late = counts.LATE ?? 0;
+    const absent = counts.ABSENT ?? 0;
+    const excused = counts.EXCUSED ?? 0;
+
+    return {
+      session: details,
+      attendanceSummary: {
+        total: present + late + absent + excused,
+        present,
+        late,
+        absent,
+        excused,
+      },
+    };
+  });
+}
+
+// TEACHER ATTENDANCE OPERATIONS
+
+// Manually mark attendance for a student.
+export async function manuallyMarkStudentAttendance({
+  teacherId,
+  institutionId,
+  sessionId,
+  studentId,
+  status,
+  notes,
+}) {
+  return prisma.$transaction(async (tx) => {
+    await lockTeacherSession(tx, teacherId);
+
+    const session = await tx.attendanceSession.findFirst({
+      where: {
+        id: sessionId,
+        teacherId,
+        institutionId,
+      },
+      select: {
+        id: true,
+        status: true,
+        expiresAt: true,
+        classSubject: {
+          select: {
+            classId: true,
+          },
+        },
+      },
+    });
+
+    if (!session) {
+      return { notFound: true };
+    }
+
+    if (session.status !== "ACTIVE") {
+      return {
+        conflict: true,
+        reason: "SESSION_NOT_ACTIVE",
+        status: session.status,
+      };
+    }
+
+    const now = new Date();
+
+    if (session.expiresAt <= now) {
+      await tx.attendanceSession.update({
+        where: { id: sessionId },
+        data: {
+          status: "EXPIRED",
+          endedAt: now,
+        },
+      });
+
+      return {
+        conflict: true,
+        reason: "SESSION_EXPIRED",
+        status: "EXPIRED",
+      };
+    }
+
+    const enrollment = await tx.enrollment.findFirst({
+      where: {
+        institutionId,
+        classId: session.classSubject.classId,
+        studentId,
+        isActive: true,
+        student: {
+          institutionId,
+          role: "STUDENT",
           isActive: true,
         },
       },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!enrollment) {
+      return { studentNotEnrolled: true };
+    }
+
+    const existingRecord = await tx.attendanceRecord.findFirst({
+      where: {
+        institutionId,
+        sessionId,
+        studentId,
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    if (existingRecord) {
+      return {
+        alreadyMarked: true,
+        existingRecord,
+      };
+    }
+
+    const record = await tx.attendanceRecord.create({
+      data: {
+        institutionId,
+        sessionId,
+        studentId,
+        status,
+        method: "MANUAL",
+        markedAt: now,
+        notes: notes ?? null,
+      },
+      select: {
+        id: true,
+        status: true,
+        method: true,
+        markedAt: true,
+        notes: true,
+        student: {
+          select: {
+            id: true,
+            fullName: true,
+            studentDetails: {
+              select: {
+                studentNumber: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      conflict: false,
+      record,
+    };
+  });
+}
+
+// Correct an existing attendance record.
+export async function correctStudentAttendance({
+  teacherId,
+  institutionId,
+  sessionId,
+  recordId,
+  status,
+  notes,
+}) {
+  return prisma.$transaction(async (tx) => {
+    await lockTeacherSession(tx, teacherId);
+
+    const session = await tx.attendanceSession.findFirst({
+      where: {
+        id: sessionId,
+        teacherId,
+        institutionId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!session) {
+      return { notFound: true };
+    }
+
+    const existingRecord = await tx.attendanceRecord.findFirst({
+      where: {
+        id: recordId,
+        sessionId,
+        institutionId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!existingRecord) {
+      return { recordNotFound: true };
+    }
+
+    const updatedRecord = await tx.attendanceRecord.update({
+      where: {
+        id: recordId,
+      },
+      data: {
+        status,
+        method: "MANUAL",
+        ...(notes !== undefined ? { notes } : {}),
+      },
+      select: {
+        id: true,
+        status: true,
+        method: true,
+        markedAt: true,
+        notes: true,
+        student: {
+          select: {
+            id: true,
+            fullName: true,
+            studentDetails: {
+              select: {
+                studentNumber: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      conflict: false,
+      record: updatedRecord,
+    };
+  });
+}
+
+
+// BULK ATTENDANCE OPERATIONS
+
+// Mark attendance for multiple students.
+export async function bulkMarkStudentsAttendance({
+  teacherId,
+  institutionId,
+  sessionId,
+  records,
+}) {
+  return prisma.$transaction(async (tx) => {
+    await lockTeacherSession(tx, teacherId);
+
+    const session = await tx.attendanceSession.findFirst({
+      where: { id: sessionId, teacherId, institutionId },
+      select: {
+        id: true,
+        status: true,
+        expiresAt: true,
+        classSubject: {
+          select: { classId: true },
+        },
+      },
+    });
+
+    if (!session) return { notFound: true };
+
+    if (session.status !== "ACTIVE") {
+      return { conflict: true, reason: "SESSION_NOT_ACTIVE" };
+    }
+
+    const now = new Date();
+
+    if (session.expiresAt <= now) {
+      await tx.attendanceSession.update({
+        where: { id: sessionId },
+        data: { status: "EXPIRED", endedAt: now },
+      });
+
+      return { conflict: true, reason: "SESSION_EXPIRED" };
+    }
+
+    const studentIds = records.map((record) => record.studentId);
+
+    const enrollments = await tx.enrollment.findMany({
+      where: {
+        institutionId,
+        classId: session.classSubject.classId,
+        studentId: { in: studentIds },
+        isActive: true,
+        student: {
+          institutionId,
+          role: "STUDENT",
+          isActive: true,
+        },
+      },
+      select: { studentId: true },
+    });
+
+    const enrolledIds = new Set(enrollments.map((item) => item.studentId));
+
+    const invalidStudentIds = studentIds.filter(
+      (id) => !enrolledIds.has(id),
+    );
+
+    if (invalidStudentIds.length > 0) {
+      return { invalidStudents: invalidStudentIds };
+    }
+
+    const existingRecords = await tx.attendanceRecord.findMany({
+      where: {
+        institutionId,
+        sessionId,
+        studentId: { in: studentIds },
+      },
+      select: {
+        studentId: true,
+        status: true,
+      },
+    });
+
+    if (existingRecords.length > 0) {
+      return {
+        alreadyMarked: existingRecords,
+      };
+    }
+
+    await tx.attendanceRecord.createMany({
+      data: records.map((record) => ({
+        institutionId,
+        sessionId,
+        studentId: record.studentId,
+        status: record.status,
+        method: "MANUAL",
+        markedAt: now,
+        notes: record.notes ?? null,
+      })),
+    });
+
+    const createdRecords = await tx.attendanceRecord.findMany({
+      where: {
+        institutionId,
+        sessionId,
+        studentId: { in: studentIds },
+      },
+      orderBy: { markedAt: "asc" },
+      select: {
+        id: true,
+        status: true,
+        method: true,
+        markedAt: true,
+        notes: true,
+        student: {
+          select: {
+            id: true,
+            fullName: true,
+            studentDetails: {
+              select: { studentNumber: true },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      success: true,
+      records: createdRecords,
+    };
+  });
+}
+
+
+// Edit attendance for multiple students.
+export async function bulkUpdateStudentAttendance({
+  teacherId,
+  institutionId,
+  sessionId,
+  records,
+}) {
+  return prisma.$transaction(async (tx) => {
+    await lockTeacherSession(tx, teacherId);
+
+    const session = await tx.attendanceSession.findFirst({
+      where: { id: sessionId, teacherId, institutionId },
+      select: { id: true },
+    });
+
+    if (!session) return { notFound: true };
+
+    const recordIds = records.map((record) => record.recordId);
+
+    const existingRecords = await tx.attendanceRecord.findMany({
+      where: {
+        institutionId,
+        sessionId,
+        id: { in: recordIds },
+      },
+      select: { id: true },
+    });
+
+    const existingIds = new Set(existingRecords.map((item) => item.id));
+
+    const invalidRecordIds = recordIds.filter(
+      (id) => !existingIds.has(id),
+    );
+
+    if (invalidRecordIds.length > 0) {
+      return { invalidRecords: invalidRecordIds };
+    }
+
+    for (const record of records) {
+      await tx.attendanceRecord.update({
+        where: { id: record.recordId },
+        data: {
+          status: record.status,
+          method: "MANUAL",
+          ...(record.notes !== undefined
+            ? { notes: record.notes }
+            : {}),
+        },
+      });
+    }
+
+    const updatedRecords = await tx.attendanceRecord.findMany({
+      where: {
+        institutionId,
+        sessionId,
+        id: { in: recordIds },
+      },
+      select: {
+        id: true,
+        status: true,
+        method: true,
+        markedAt: true,
+        notes: true,
+        student: {
+          select: {
+            id: true,
+            fullName: true,
+            studentDetails: {
+              select: { studentNumber: true },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      success: true,
+      records: updatedRecords,
+    };
+  });
+}
+
+
+// Get every enrolled student and their attendance status.
+export async function findTeacherSessionAttendanceRoster({
+  teacherId,
+  institutionId,
+  sessionId,
+}) {
+  const session = await prisma.attendanceSession.findFirst({
+    where: {
+      id: sessionId,
+      teacherId,
+      institutionId,
     },
     select: {
       id: true,
-      classSubjectId: true,
-      weekday: true,
-      startTime: true,
-      endTime: true,
-      room: true,
+      status: true,
+      startsAt: true,
+      expiresAt: true,
+      endedAt: true,
+      classSubject: {
+        select: {
+          id: true,
+          classId: true,
+          subject: {
+            select: { id: true, name: true, code: true },
+          },
+          schoolClass: {
+            select: {
+              id: true,
+              name: true,
+              division: true,
+              academicYear: true,
+            },
+          },
+        },
+      },
     },
   });
+
+  if (!session) return null;
+
+  const [enrollments, attendanceRecords] = await Promise.all([
+    prisma.enrollment.findMany({
+      where: {
+        institutionId,
+        classId: session.classSubject.classId,
+        isActive: true,
+        student: {
+          institutionId,
+          role: "STUDENT",
+          isActive: true,
+        },
+      },
+      orderBy: {
+        student: { fullName: "asc" },
+      },
+      select: {
+        student: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            studentDetails: {
+              select: { studentNumber: true },
+            },
+          },
+        },
+      },
+    }),
+
+    prisma.attendanceRecord.findMany({
+      where: {
+        institutionId,
+        sessionId,
+      },
+      select: {
+        id: true,
+        studentId: true,
+        status: true,
+        method: true,
+        markedAt: true,
+        notes: true,
+      },
+    }),
+  ]);
+
+  return {
+    session,
+    enrollments,
+    attendanceRecords,
+  };
 }

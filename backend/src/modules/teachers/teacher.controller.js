@@ -349,3 +349,135 @@ export const createAttendanceSession = catchAsync(async (req, res) => {
     data.session,
   );
 });
+
+// END ATTENDANCE SESSION
+export const endAttendanceSession = catchAsync(async (req, res) => {
+  const data = await service.endAttendanceSession(
+    req.user,
+    req.params.sessionId,
+  );
+
+  return sendResponse(
+    res,
+    200,
+    data.message,
+    data.session,
+  );
+});
+
+// GET LIVE ATTENDANCE SESSION
+export const getLiveAttendanceSession = catchAsync(async (req, res) => {
+  const data = await service.getLiveAttendanceSession(
+    req.user,
+    req.params.sessionId,
+  );
+
+  return sendResponse(
+    res,
+    200,
+    "Live attendance session fetched successfully",
+    data,
+  );
+});
+
+// TEACHER ATTENDANCE OPERATIONS
+
+// Manually mark attendance.
+export const manuallyMarkStudentAttendance = catchAsync(
+  async (req, res) => {
+    const data = await service.manuallyMarkStudentAttendance(
+      req.user,
+      req.params.sessionId,
+      req.body,
+    );
+
+    return sendResponse(
+      res,
+      201,
+      data.message,
+      data.record,
+    );
+  },
+);
+
+// Correct attendance record.
+export const correctStudentAttendance = catchAsync(
+  async (req, res) => {
+    const data = await service.correctStudentAttendance(
+      req.user,
+      req.params.sessionId,
+      req.params.recordId,
+      req.body,
+    );
+
+    return sendResponse(
+      res,
+      200,
+      data.message,
+      data.record,
+    );
+  },
+);
+
+// BULK ATTENDANCE CONTROLLERS
+
+// Bulk mark attendance.
+export const bulkMarkStudentsAttendance = catchAsync(
+  async (req, res) => {
+    const data = await service.bulkMarkStudentsAttendance(
+      req.user,
+      req.params.sessionId,
+      req.body,
+    );
+
+    return sendResponse(
+      res,
+      201,
+      data.message,
+      {
+        totalMarked: data.totalMarked,
+        records: data.records,
+      },
+    );
+  },
+);
+
+
+// Bulk update attendance.
+export const bulkUpdateStudentAttendance = catchAsync(
+  async (req, res) => {
+    const data = await service.bulkUpdateStudentAttendance(
+      req.user,
+      req.params.sessionId,
+      req.body,
+    );
+
+    return sendResponse(
+      res,
+      200,
+      data.message,
+      {
+        totalUpdated: data.totalUpdated,
+        records: data.records,
+      },
+    );
+  },
+);
+
+
+// Get all students and attendance statuses.
+export const getTeacherSessionAttendanceRoster = catchAsync(
+  async (req, res) => {
+    const data = await service.getTeacherSessionAttendanceRoster(
+      req.user,
+      req.params.sessionId,
+    );
+
+    return sendResponse(
+      res,
+      200,
+      "Session attendance roster fetched successfully",
+      data,
+    );
+  },
+);

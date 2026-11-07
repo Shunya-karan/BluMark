@@ -20,7 +20,11 @@ import {
   studyMaterialParamSchema,
   studyMaterialQuerySchema,
   createAttendanceSessionSchema,
-
+  attendanceRecordParamSchema,
+  manualAttendanceSchema,
+  correctAttendanceSchema,
+  bulkManualAttendanceSchema,
+bulkUpdateAttendanceSchema,
 } from "./teacher.validation.js";
 
 const router = Router();
@@ -189,4 +193,64 @@ router.post(
   validate(createAttendanceSessionSchema),
   controller.createAttendanceSession,
 );
+
+// END ATTENDANCE SESSION
+router.patch(
+  "/attendance/sessions/:sessionId/end",
+  validate(attendanceSessionParamSchema, "params"),
+  controller.endAttendanceSession,
+);
+
+// GET LIVE ATTENDANCE SESSION
+router.get(
+  "/attendance/sessions/:sessionId/live",
+  validate(attendanceSessionParamSchema, "params"),
+  controller.getLiveAttendanceSession,
+);
+
+// TEACHER ATTENDANCE OPERATIONS
+
+// Manually mark a student's attendance.
+router.post(
+  "/attendance/sessions/:sessionId/records/manual",
+  validate(attendanceSessionParamSchema, "params"),
+  validate(manualAttendanceSchema),
+  controller.manuallyMarkStudentAttendance,
+);
+
+// Correct an existing attendance record.
+router.patch(
+  "/attendance/sessions/:sessionId/records/:recordId",
+  validate(attendanceRecordParamSchema, "params"),
+  validate(correctAttendanceSchema),
+  controller.correctStudentAttendance,
+);
+
+// ======================================================
+// BULK ATTENDANCE ROUTES
+// ======================================================
+
+// Bulk mark attendance.
+router.post(
+  "/attendance/sessions/:sessionId/records/bulk",
+  validate(attendanceSessionParamSchema, "params"),
+  validate(bulkManualAttendanceSchema),
+  controller.bulkMarkStudentsAttendance,
+);
+
+// Bulk update attendance.
+router.patch(
+  "/attendance/sessions/:sessionId/records/bulk",
+  validate(attendanceSessionParamSchema, "params"),
+  validate(bulkUpdateAttendanceSchema),
+  controller.bulkUpdateStudentAttendance,
+);
+
+// Get all students with their attendance status.
+router.get(
+  "/attendance/sessions/:sessionId/attendance",
+  validate(attendanceSessionParamSchema, "params"),
+  controller.getTeacherSessionAttendanceRoster,
+);
 export default router;
+

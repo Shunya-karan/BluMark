@@ -725,3 +725,300 @@ export async function createAttendanceSession(user, data) {
     session: result.session,
   };
 }
+
+
+// END ATTENDANCE SESSION
+export async function endAttendanceSession(user, sessionId) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const result = await repository.endTeacherAttendanceSession({
+    teacherId,
+    institutionId,
+    sessionId,
+  });
+
+  if (result.notFound) {
+    throw new AppError("Attendance session not found", 404);
+  }
+
+  if (result.conflict) {
+    throw new AppError(
+      result.status === "EXPIRED"
+        ? "This attendance session has already expired"
+        : `Attendance session cannot be ended. Current status: ${result.status}`,
+      409,
+    );
+  }
+
+  return {
+    message: "Attendance session ended successfully",
+    session: result.session,
+  };
+}
+
+// GET LIVE ATTENDANCE SESSION
+export async function getLiveAttendanceSession(user, sessionId) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const result = await repository.findTeacherLiveAttendanceSession({
+    teacherId,
+    institutionId,
+    sessionId,
+  });
+
+  if (!result) {
+    throw new AppError("Attendance session not found", 404);
+  }
+
+  const now = new Date();
+
+  const remainingSeconds =
+    result.session.status === "ACTIVE"
+      ? Math.max(
+          0,
+          Math.floor(
+            (new Date(result.session.expiresAt).getTime() - now.getTime()) /
+              1000,
+          ),
+        )
+      : 0;
+
+  return {
+    ...result,
+    remainingSeconds,
+  };
+}
+
+// TEACHER ATTENDANCE OPERATIONS
+
+// Manually mark student attendance.
+export async function manuallyMarkStudentAttendance(user, sessionId, data) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const result = await repository.manuallyMarkStudentAttendance({
+    teacherId,
+    institutionId,
+    sessionId,
+    studentId: data.studentId,
+    status: data.status,
+    notes: data.notes,
+  });
+
+  if (result.notFound) {
+    throw new AppError("Attendance session not found", 404);
+  }
+
+  if (result.studentNotEnrolled) {
+    throw new AppError(
+      "Student is not actively enrolled in this session's class",
+      404,
+    );
+  }
+
+  if (result.alreadyMarked) {
+    throw new AppError(
+      "Attendance has already been marked for this student. Use the correction endpoint instead.",
+      409,
+    );
+  }
+
+  if (result.conflict) {
+    throw new AppError(
+      result.reason === "SESSION_EXPIRED"
+        ? "Attendance session has expired"
+        : `Attendance cannot be marked. Session status: ${result.status}`,
+      409,
+    );
+  }
+
+  return {
+    message: "Student attendance marked successfully",
+    record: result.record,
+  };
+}
+
+// Correct student attendance.
+export async function correctStudentAttendance(
+  user,
+  sessionId,
+  recordId,
+  data,
+) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const result = await repository.correctStudentAttendance({
+    teacherId,
+    institutionId,
+    sessionId,
+    recordId,
+    status: data.status,
+    notes: data.notes,
+  });
+
+  if (result.notFound) {
+    throw new AppError("Attendance session not found", 404);
+  }
+
+  if (result.recordNotFound) {
+    throw new AppError(
+      "Attendance record not found in this session",
+      404,
+    );
+  }
+
+  return {
+    message: "Attendance record corrected successfully",
+    record: result.record,
+  };
+}
+
+// BULK ATTENDANCE SERVICES
+
+// Bulk mark attendance.
+export async function bulkMarkStudentsAttendance(user, sessionId, data) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const result = await repository.bulkMarkStudentsAttendance({
+    teacherId,
+    institutionId,
+    sessionId,
+    records: data.records,
+  });
+
+  if (result.notFound) {
+    throw new AppError("Attendance session not found", 404);
+  }
+
+  if (result.invalidStudents) {
+    throw new AppError(
+      "Some students are not actively enrolled in this class",
+      400,
+      { studentIds: result.invalidStudents },
+    );
+  }
+
+  if (result.alreadyMarked) {
+    throw new AppError(
+      "Attendance already exists for some students. Use bulk edit instead.",
+      409,
+      { existingRecords: result.alreadyMarked },
+    );
+  }
+
+  if (result.conflict) {
+    throw new AppError(
+      result.reason === "SESSION_EXPIRED"
+        ? "Attendance session has expired"
+        : "Attendance session is not active",
+      409,
+    );
+  }
+
+  return {
+    message: "Bulk attendance marked successfully",
+    totalMarked: result.records.length,
+    records: result.records,
+  };
+}
+
+
+// Bulk edit attendance.
+export async function bulkUpdateStudentAttendance(user, sessionId, data) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const result = await repository.bulkUpdateStudentAttendance({
+    teacherId,
+    institutionId,
+    sessionId,
+    records: data.records,
+  });
+
+  if (result.notFound) {
+    throw new AppError("Attendance session not found", 404);
+  }
+
+  if (result.invalidRecords) {
+    throw new AppError(
+      "Some attendance records do not belong to this session",
+      404,
+      { recordIds: result.invalidRecords },
+    );
+  }
+
+  return {
+    message: "Bulk attendance updated successfully",
+    totalUpdated: result.records.length,
+    records: result.records,
+  };
+}
+
+
+// Get full class attendance roster.
+export async function getTeacherSessionAttendanceRoster(user, sessionId) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const result = await repository.findTeacherSessionAttendanceRoster({
+    teacherId,
+    institutionId,
+    sessionId,
+  });
+
+  if (!result) {
+    throw new AppError("Attendance session not found", 404);
+  }
+
+  const recordsByStudent = new Map(
+    result.attendanceRecords.map((record) => [
+      record.studentId,
+      record,
+    ]),
+  );
+
+  const students = result.enrollments.map(({ student }) => {
+    const record = recordsByStudent.get(student.id);
+
+    return {
+      ...student,
+      attendance: record
+        ? {
+            recordId: record.id,
+            status: record.status,
+            method: record.method,
+            markedAt: record.markedAt,
+            notes: record.notes,
+          }
+        : {
+            recordId: null,
+            status: "UNMARKED",
+            method: null,
+            markedAt: null,
+            notes: null,
+          },
+    };
+  });
+
+  const summary = {
+    totalStudents: students.length,
+    present: 0,
+    late: 0,
+    absent: 0,
+    excused: 0,
+    unmarked: 0,
+  };
+
+  for (const student of students) {
+    const status = student.attendance.status.toLowerCase();
+
+    if (status === "unmarked") {
+      summary.unmarked++;
+    } else if (Object.hasOwn(summary, status)) {
+      summary[status]++;
+    }
+  }
+
+  return {
+    session: result.session,
+    summary,
+    students,
+  };
+}
