@@ -2107,3 +2107,96 @@ export async function findTeacherSessionAttendanceRoster({
     attendanceRecords,
   };
 }
+
+// ======================================================
+// STUDY MATERIAL MANAGEMENT
+// ======================================================
+
+export function createTeacherStudyMaterial(data) {
+  return prisma.studyMaterial.create({
+    data,
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      fileUrl: true,
+      fileType: true,
+      originalFileName: true,
+      fileSize: true,
+      createdAt: true,
+      updatedAt: true,
+      classSubject: {
+        select: {
+          id: true,
+          subject: { select: { id: true, name: true, code: true , storageKey: true,} },
+          schoolClass: {
+            select: { id: true, name: true, division: true, academicYear: true },
+          },
+        },
+      },
+    },
+  });
+}
+
+export function findTeacherStudyMaterialForManagement({
+  materialId,
+  teacherId,
+  institutionId,
+}) {
+  return prisma.studyMaterial.findFirst({
+    where: {
+      id: materialId,
+      institutionId,
+      classSubject: {
+        teacherId,
+        institutionId,
+      },
+    },
+    select: {
+      id: true,
+      institutionId: true,
+      classSubjectId: true,
+      uploadedBy: true,
+      title: true,
+      description: true,
+      fileUrl: true,
+      fileType: true,
+      storageKey: true,
+      originalFileName: true,
+      fileSize: true,
+    },
+  });
+}
+
+export function updateTeacherStudyMaterial({
+  materialId,
+  institutionId,
+  data,
+}) {
+  return prisma.studyMaterial.update({
+    where: { id: materialId },
+    data,
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      fileUrl: true,
+      fileType: true,
+      originalFileName: true,
+      fileSize: true,
+      createdAt: true,
+      updatedAt: true,
+      storageKey: true,
+    },
+  });
+}
+
+export function deleteTeacherStudyMaterial(materialId) {
+  return prisma.studyMaterial.delete({
+    where: { id: materialId },
+    select: {
+      id: true,
+      storageKey: true,
+    },
+  });
+}

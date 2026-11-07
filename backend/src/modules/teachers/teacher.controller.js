@@ -481,3 +481,74 @@ export const getTeacherSessionAttendanceRoster = catchAsync(
     );
   },
 );
+
+// ======================================================
+// STUDY MATERIAL MANAGEMENT CONTROLLERS
+// ======================================================
+
+export const uploadTeacherStudyMaterial = catchAsync(
+  async (req, res) => {
+    const data = await service.uploadTeacherStudyMaterial(
+      req.user,
+      req.body,
+      req.file,
+    );
+
+    return sendResponse(
+      res,
+      201,
+      data.message,
+      data.material,
+    );
+  },
+);
+
+export const updateTeacherStudyMaterial = catchAsync(
+  async (req, res) => {
+    const data = await service.updateTeacherStudyMaterial(
+      req.user,
+      req.params.materialId,
+      req.body,
+      req.file,
+    );
+
+    return sendResponse(
+      res,
+      200,
+      data.message,
+      data.material,
+    );
+  },
+);
+
+export const deleteTeacherStudyMaterial = catchAsync(
+  async (req, res) => {
+    const data = await service.deleteTeacherStudyMaterial(
+      req.user,
+      req.params.materialId,
+    );
+
+    return sendResponse(
+      res,
+      200,
+      data.message,
+      { materialId: data.materialId },
+    );
+  },
+);
+
+export const getTeacherStudyMaterialDownloadUrl = catchAsync(
+  async (req, res) => {
+    const data = await service.getTeacherStudyMaterialDownloadUrl(
+      req.user,
+      req.params.materialId,
+    );
+
+    return sendResponse(
+      res,
+      200,
+      "Study material download URL generated successfully",
+      data,
+    );
+  },
+);

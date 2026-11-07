@@ -6,7 +6,7 @@ import * as controller from "./teacher.controller.js";
 import authenticate from "../../middleware/authenticate.js";
 import authorizeRoles from "../../middleware/authorize.js";
 import validate from "../../middleware/validate.js";
-
+import uploadStudyMaterial from "../../middleware/studyMaterialUpload.js";
 import {
   profileUpdateSchema,
   classParamSchema,
@@ -25,6 +25,9 @@ import {
   correctAttendanceSchema,
   bulkManualAttendanceSchema,
 bulkUpdateAttendanceSchema,
+createStudyMaterialSchema,
+updateStudyMaterialSchema,
+studyMaterialManagementParamSchema,
 } from "./teacher.validation.js";
 
 const router = Router();
@@ -251,6 +254,41 @@ router.get(
   "/attendance/sessions/:sessionId/attendance",
   validate(attendanceSessionParamSchema, "params"),
   controller.getTeacherSessionAttendanceRoster,
+);
+
+// ======================================================
+// STUDY MATERIAL MANAGEMENT ROUTES
+// ======================================================
+
+// Upload study material.
+router.post(
+  "/study-materials",
+  uploadStudyMaterial.single("file"),
+  validate(createStudyMaterialSchema),
+  controller.uploadTeacherStudyMaterial,
+);
+
+// Update title, description or replace file.
+router.patch(
+  "/study-materials/:materialId",
+  validate(studyMaterialManagementParamSchema, "params"),
+  uploadStudyMaterial.single("file"),
+  validate(updateStudyMaterialSchema),
+  controller.updateTeacherStudyMaterial,
+);
+
+// Delete study material.
+router.delete(
+  "/study-materials/:materialId",
+  validate(studyMaterialManagementParamSchema, "params"),
+  controller.deleteTeacherStudyMaterial,
+);
+
+// Generate a temporary private download URL.
+router.get(
+  "/study-materials/:materialId/download",
+  validate(studyMaterialManagementParamSchema, "params"),
+  controller.getTeacherStudyMaterialDownloadUrl,
 );
 export default router;
 

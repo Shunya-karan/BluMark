@@ -243,3 +243,22 @@ export const bulkUpdateAttendanceSchema = z.object({
       }
     }),
 });
+
+// ======================================================
+// STUDY MATERIAL MANAGEMENT VALIDATION
+// ======================================================
+
+export const createStudyMaterialSchema = z.object({
+  classSubjectId: z.string().uuid("Invalid class subject ID"),
+  title: z.string().trim().min(2).max(150),
+  description: z.string().trim().max(1000).nullable().optional(),
+});
+
+export const updateStudyMaterialSchema = z.object({
+  title: z.string().trim().min(2).max(150).optional(),
+  description: z.string().trim().max(1000).nullable().optional(),
+});
+
+export const studyMaterialManagementParamSchema = z.object({
+  materialId: z.string().uuid("Invalid study material ID"),
+});

@@ -699,6 +699,122 @@ export const teacherOpenApi = {
         },
       ),
     },
+    "/api/v1/teacher/study-materials": {
+      post: protectedOperation(
+        "Upload a study material to private AWS S3 storage",
+        {
+          requestBody: {
+            required: true,
+            content: {
+              "multipart/form-data": {
+                schema: {
+                  type: "object",
+                  required: ["classSubjectId", "title", "file"],
+                  properties: {
+                    classSubjectId: {
+                      type: "string",
+                      format: "uuid",
+                    },
+                    title: {
+                      type: "string",
+                      minLength: 2,
+                      maxLength: 150,
+                    },
+                    description: {
+                      type: "string",
+                      nullable: true,
+                      maxLength: 1000,
+                    },
+                    file: {
+                      type: "string",
+                      format: "binary",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: "Study material uploaded successfully" },
+            400: { description: "Invalid file or request data" },
+            404: { description: "Class subject not found" },
+          },
+        },
+      ),
+    },
+
+    "/api/v1/teacher/study-materials/{materialId}": {
+      patch: protectedOperation(
+        "Update study material metadata or replace its file",
+        {
+          parameters: [
+            {
+              name: "materialId",
+              in: "path",
+              required: true,
+              schema: { type: "string", format: "uuid" },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "multipart/form-data": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string", minLength: 2, maxLength: 150 },
+                    description: { type: "string", nullable: true, maxLength: 1000 },
+                    file: { type: "string", format: "binary" },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: "Study material updated successfully" },
+            404: { description: "Study material not found" },
+          },
+        },
+      ),
+
+      delete: protectedOperation(
+        "Delete a study material and its S3 object",
+        {
+          parameters: [
+            {
+              name: "materialId",
+              in: "path",
+              required: true,
+              schema: { type: "string", format: "uuid" },
+            },
+          ],
+          responses: {
+            200: { description: "Study material deleted successfully" },
+            404: { description: "Study material not found" },
+          },
+        },
+      ),
+    },
+
+    "/api/v1/teacher/study-materials/{materialId}/download": {
+      get: protectedOperation(
+        "Generate a temporary download URL for a private study material",
+        {
+          parameters: [
+            {
+              name: "materialId",
+              in: "path",
+              required: true,
+              schema: { type: "string", format: "uuid" },
+            },
+          ],
+          responses: {
+            200: { description: "Download URL generated successfully" },
+            404: { description: "Study material not found" },
+          },
+        },
+      ),
+    },
   },
   components: {
     schemas: {

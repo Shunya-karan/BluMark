@@ -2,6 +2,12 @@
 import * as repository from "./teacher.repository.js";
 import AppError from "../../utils/AppError.js";
 import { randomBytes } from "node:crypto";
+
+import {
+  uploadStudyMaterial,
+  deleteStudyMaterialObject,
+  createStudyMaterialDownloadUrl,
+} from "../../utils/s3Storage.js";
 // COMMON HELPERS
 
 function getTeacherIdentity(user) {
@@ -1020,5 +1026,184 @@ export async function getTeacherSessionAttendanceRoster(user, sessionId) {
     session: result.session,
     summary,
     students,
+  };
+}
+
+// ======================================================
+// STUDY MATERIAL MANAGEMENT SERVICES
+// ======================================================
+
+export async function uploadTeacherStudyMaterial(user, data, file) {
+  if (!file) {
+    throw new AppError("Please select a file to upload", 400);
+  }
+
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const assignment = await repository.findTeacherClassSubject(
+    teacherId,
+    institutionId,
+    data.classSubjectId,
+  );
+
+  if (!assignment) {
+    throw new AppError(
+      "Class subject not found or you are not assigned to teach it",
+      404,
+    );
+  }
+
+  const uploaded = await uploadStudyMaterial({
+    file,
+    institutionId,
+    classSubjectId: data.classSubjectId,
+  });
+
+  try {
+    const material = await repository.createTeacherStudyMaterial({
+      institutionId,
+      classSubjectId: data.classSubjectId,
+      uploadedBy: teacherId,
+      title: data.title,
+      description: data.description ?? null,
+      ...uploaded,
+    });
+
+    return {
+      message: "Study material uploaded successfully",
+      material: {
+        ...material,
+        downloadUrl: await createStudyMaterialDownloadUrl(
+          material.storageKey,
+        ),
+      },
+    };
+  } catch (error) {
+    // Remove the uploaded object if the database insert fails.
+    await deleteStudyMaterialObject(uploaded.storageKey).catch(() => {});
+    throw error;
+  }
+}
+
+export async function updateTeacherStudyMaterial(
+  user,
+  materialId,
+  data,
+  file,
+) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const existing = await repository.findTeacherStudyMaterialForManagement({
+    materialId,
+    teacherId,
+    institutionId,
+  });
+
+  if (!existing) {
+    throw new AppError("Study material not found", 404);
+  }
+
+  let uploaded = null;
+
+  if (file) {
+    uploaded = await uploadStudyMaterial({
+      file,
+      institutionId,
+      classSubjectId: existing.classSubjectId,
+    });
+  }
+
+  try {
+    const material = await repository.updateTeacherStudyMaterial({
+      materialId,
+      institutionId,
+      data: {
+        ...(data.title !== undefined ? { title: data.title } : {}),
+        ...(data.description !== undefined
+          ? { description: data.description }
+          : {}),
+        ...(uploaded ?? {}),
+      },
+    });
+
+    // Delete the old S3 object only after the database update succeeds.
+    if (uploaded && existing.storageKey) {
+      await deleteStudyMaterialObject(existing.storageKey).catch((error) => {
+        // The database already points to the new file. Log this for cleanup.
+        console.error("Old study material S3 object cleanup failed:", error);
+      });
+    }
+
+    return {
+      message: "Study material updated successfully",
+      material: {
+        ...material,
+        downloadUrl: await createStudyMaterialDownloadUrl(
+          uploaded?.storageKey ?? existing.storageKey,
+        ),
+      },
+    };
+  } catch (error) {
+    if (uploaded) {
+      await deleteStudyMaterialObject(uploaded.storageKey).catch(() => {});
+    }
+    throw error;
+  }
+}
+
+export async function deleteTeacherStudyMaterial(user, materialId) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const existing = await repository.findTeacherStudyMaterialForManagement({
+    materialId,
+    teacherId,
+    institutionId,
+  });
+
+  if (!existing) {
+    throw new AppError("Study material not found", 404);
+  }
+
+  await repository.deleteTeacherStudyMaterial(materialId);
+
+  if (existing.storageKey) {
+    try {
+      await deleteStudyMaterialObject(existing.storageKey);
+    } catch (error) {
+      // The database row is gone; log the orphaned S3 object for cleanup.
+      console.error("Study material S3 deletion failed:", error);
+    }
+  }
+
+  return {
+    message: "Study material deleted successfully",
+    materialId,
+  };
+}
+
+export async function getTeacherStudyMaterialDownloadUrl(user, materialId) {
+  const { teacherId, institutionId } = await teacherContext(user);
+
+  const material = await repository.findTeacherStudyMaterialForManagement({
+    materialId,
+    teacherId,
+    institutionId,
+  });
+
+  if (!material) {
+    throw new AppError("Study material not found", 404);
+  }
+
+  if (!material.storageKey) {
+    throw new AppError(
+      "This material does not have an S3 file attached",
+      404,
+    );
+  }
+
+  return {
+    materialId: material.id,
+    downloadUrl: await createStudyMaterialDownloadUrl(material.storageKey),
+    expiresIn: Number(process.env.AWS_S3_SIGNED_URL_EXPIRY || 300),
   };
 }

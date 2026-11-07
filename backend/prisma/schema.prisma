@@ -432,20 +432,26 @@ model Device {
 }
 
 model StudyMaterial {
-  id             String   @id @default(uuid()) @db.Uuid
-  institutionId  String   @map("institution_id") @db.Uuid
-  classSubjectId String   @map("class_subject_id") @db.Uuid
-  uploadedBy     String?  @map("uploaded_by") @db.Uuid
-  title          String
-  description    String?
-  fileUrl        String   @map("file_url")
-  fileType       String   @map("file_type") @db.VarChar(128)
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id               String   @id @default(uuid()) @db.Uuid
+  institutionId    String   @map("institution_id") @db.Uuid
+  classSubjectId   String   @map("class_subject_id") @db.Uuid
+  uploadedBy       String?  @map("uploaded_by") @db.Uuid
+  title            String
+  description      String?
+  fileUrl          String   @map("file_url")
+  fileType         String   @map("file_type") @db.VarChar(128)
 
-  institution Institution  @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  // S3 storage metadata
+  storageKey       String?  @map("storage_key")
+  originalFileName String?  @map("original_file_name")
+  fileSize         Int?     @map("file_size")
+
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  institution  Institution  @relation(fields: [institutionId], references: [id], onDelete: Restrict)
   classSubject ClassSubject @relation(fields: [classSubjectId, institutionId], references: [id, institutionId], onDelete: Restrict)
-  uploader Profile? @relation("MaterialUploader", fields: [uploadedBy, institutionId], references: [id, institutionId], onDelete: Restrict)
+  uploader     Profile?     @relation("MaterialUploader", fields: [uploadedBy, institutionId], references: [id, institutionId], onDelete: Restrict)
 
   @@index([institutionId, classSubjectId, createdAt])
   @@map("study_materials")
