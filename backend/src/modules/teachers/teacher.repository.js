@@ -2112,31 +2112,34 @@ export async function findTeacherSessionAttendanceRoster({
 // STUDY MATERIAL MANAGEMENT
 // ======================================================
 
-export function createTeacherStudyMaterial(data) {
+export const createTeacherStudyMaterial = async (data) => {
   return prisma.studyMaterial.create({
-    data,
+    data: {
+      institutionId: data.institutionId,
+      classSubjectId: data.classSubjectId,
+      uploadedBy: data.uploadedBy,
+      title: data.title,
+      description: data.description,
+      storageKey: data.storageKey,
+      fileUrl: data.fileUrl,
+      originalFileName: data.originalFileName,
+      fileSize: data.fileSize,
+      fileType: data.fileType,
+    },
     select: {
       id: true,
       title: true,
       description: true,
       fileUrl: true,
       fileType: true,
+      storageKey: true,
       originalFileName: true,
       fileSize: true,
       createdAt: true,
       updatedAt: true,
-      classSubject: {
-        select: {
-          id: true,
-          subject: { select: { id: true, name: true, code: true , storageKey: true,} },
-          schoolClass: {
-            select: { id: true, name: true, division: true, academicYear: true },
-          },
-        },
-      },
     },
   });
-}
+};
 
 export function findTeacherStudyMaterialForManagement({
   materialId,

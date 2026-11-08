@@ -1,79 +1,69 @@
+import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
-  DeleteObjectCommand,
-  GetObjectCommand,
-  PutObjectCommand,
-} from "@aws-sdk/client-s3";
-
-import { randomUUID } from "node:crypto";
-import path from "node:path";
-
-import s3, {
-  S3_BUCKET,
+  s3Client,
+  AWS_S3_BUCKET_NAME,
   SIGNED_URL_EXPIRY,
 } from "../config/aws.js";
 
-export async function uploadStudyMaterial({
+import { randomUUID } from "crypto";
+import path from "path";
+
+export const uploadStudyMaterial = async ({
   file,
   institutionId,
   classSubjectId,
-}) {
+}) => {
   const extension = path.extname(file.originalname).toLowerCase();
-  const key = [
-    "study-materials",
-    institutionId,
-    classSubjectId,
-    `${randomUUID()}${extension}`,
-  ].join("/");
 
-  await s3.send(
+  const storageKey = `study-materials/${institutionId}/${classSubjectId}/${randomUUID()}${extension}`;
+
+  await s3Client.send(
     new PutObjectCommand({
-      Bucket: S3_BUCKET,
-      Key: key,
+      Bucket: AWS_S3_BUCKET_NAME,
+      Key: storageKey,
       Body: file.buffer,
       ContentType: file.mimetype,
       ContentLength: file.size,
       ServerSideEncryption: "AES256",
       Metadata: {
-        originalfilename: encodeURIComponent(
-          path.basename(file.originalname),
-        ),
+        originalName: encodeURIComponent(file.originalname),
       },
-    }),
+    })
   );
 
   return {
-    storageKey: key,
-    fileUrl: `https://${S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`,
-    fileType: file.mimetype,
-    originalFileName: path.basename(file.originalname),
+    storageKey,
+    fileUrl: `https://${AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${storageKey}`,
+    originalFileName: file.originalname,
     fileSize: file.size,
   };
-}
+};
 
-export async function deleteStudyMaterialObject(storageKey) {
+export const deleteStudyMaterialObject = async (storageKey) => {
   if (!storageKey) return;
 
-  await s3.send(
+  await s3Client.send(
     new DeleteObjectCommand({
-      Bucket: S3_BUCKET,
+      Bucket: AWS_S3_BUCKET_NAME,
       Key: storageKey,
-    }),
+    })
   );
-}
+};
 
-export async function createStudyMaterialDownloadUrl(storageKey) {
-  if (!storageKey) return null;
+export const getStudyMaterialSignedUrl = async (storageKey) => {
+  if (!storageKey) {
+    throw new Error("Study material storage key is missing");
+  }
 
   const command = new GetObjectCommand({
-    Bucket: S3_BUCKET,
+    Bucket: AWS_S3_BUCKET_NAME,
     Key: storageKey,
   });
 
-  const { getSignedUrl } = await import(
-    "@aws-sdk/s3-request-presigner"
-  );
-
-  return getSignedUrl(s3, command, {
+  return getSignedUrl(s3Client, command, {
     expiresIn: SIGNED_URL_EXPIRY,
   });
-}
+};
+
+export const createStudyMaterialDownloadUrl = getStudyMaterialSignedUrl;

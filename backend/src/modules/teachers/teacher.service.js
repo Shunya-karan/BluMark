@@ -6,7 +6,7 @@ import { randomBytes } from "node:crypto";
 import {
   uploadStudyMaterial,
   deleteStudyMaterialObject,
-  createStudyMaterialDownloadUrl,
+  getStudyMaterialSignedUrl,
 } from "../../utils/s3Storage.js";
 // COMMON HELPERS
 
@@ -1053,36 +1053,33 @@ export async function uploadTeacherStudyMaterial(user, data, file) {
     );
   }
 
-  const uploaded = await uploadStudyMaterial({
-    file,
+  const uploadedFile = await uploadStudyMaterial({
+  file,
+  institutionId,
+  classSubjectId: data.classSubjectId,
+});
+
+try {
+  const material = await repository.createTeacherStudyMaterial({
     institutionId,
     classSubjectId: data.classSubjectId,
+    uploadedBy: teacherId,
+    title: data.title,
+    description: data.description ?? null,
+
+    storageKey: uploadedFile.storageKey,
+    fileUrl: uploadedFile.fileUrl,
+    originalFileName: uploadedFile.originalFileName,
+    fileSize: uploadedFile.fileSize,
+
+    // REQUIRED BY PRISMA
+    fileType: file.mimetype,
   });
-
-  try {
-    const material = await repository.createTeacherStudyMaterial({
-      institutionId,
-      classSubjectId: data.classSubjectId,
-      uploadedBy: teacherId,
-      title: data.title,
-      description: data.description ?? null,
-      ...uploaded,
-    });
-
-    return {
-      message: "Study material uploaded successfully",
-      material: {
-        ...material,
-        downloadUrl: await createStudyMaterialDownloadUrl(
-          material.storageKey,
-        ),
-      },
-    };
-  } catch (error) {
-    // Remove the uploaded object if the database insert fails.
-    await deleteStudyMaterialObject(uploaded.storageKey).catch(() => {});
-    throw error;
-  }
+  return material;
+} catch (error) {
+  await deleteStudyMaterialObject(uploadedFile.storageKey);
+  throw error;
+}
 }
 
 export async function updateTeacherStudyMaterial(
@@ -1138,7 +1135,7 @@ export async function updateTeacherStudyMaterial(
       message: "Study material updated successfully",
       material: {
         ...material,
-        downloadUrl: await createStudyMaterialDownloadUrl(
+        downloadUrl: await getStudyMaterialSignedUrl(
           uploaded?.storageKey ?? existing.storageKey,
         ),
       },
@@ -1203,7 +1200,7 @@ export async function getTeacherStudyMaterialDownloadUrl(user, materialId) {
 
   return {
     materialId: material.id,
-    downloadUrl: await createStudyMaterialDownloadUrl(material.storageKey),
+    downloadUrl: await getStudyMaterialSignedUrl(material.storageKey),
     expiresIn: Number(process.env.AWS_S3_SIGNED_URL_EXPIRY || 300),
   };
 }

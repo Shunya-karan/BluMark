@@ -256,16 +256,14 @@ router.get(
   controller.getTeacherSessionAttendanceRoster,
 );
 
-// ======================================================
 // STUDY MATERIAL MANAGEMENT ROUTES
-// ======================================================
 
 // Upload study material.
 router.post(
   "/study-materials",
   uploadStudyMaterial.single("file"),
   validate(createStudyMaterialSchema),
-  controller.uploadTeacherStudyMaterial,
+  controller.uploadStudyMaterial,
 );
 
 // Update title, description or replace file.

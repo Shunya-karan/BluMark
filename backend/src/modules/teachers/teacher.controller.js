@@ -486,22 +486,20 @@ export const getTeacherSessionAttendanceRoster = catchAsync(
 // STUDY MATERIAL MANAGEMENT CONTROLLERS
 // ======================================================
 
-export const uploadTeacherStudyMaterial = catchAsync(
-  async (req, res) => {
-    const data = await service.uploadTeacherStudyMaterial(
-      req.user,
-      req.body,
-      req.file,
-    );
+export const uploadStudyMaterial = catchAsync(async (req, res) => {
+  const material = await service.uploadTeacherStudyMaterial(
+    req.user,
+    req.body,
+    req.file
+  );
 
-    return sendResponse(
-      res,
-      201,
-      data.message,
-      data.material,
-    );
-  },
-);
+  return sendResponse(
+    res,
+    201,
+    "Study material uploaded successfully",
+    material
+  );
+});
 
 export const updateTeacherStudyMaterial = catchAsync(
   async (req, res) => {
