@@ -4,6 +4,7 @@ import studentOpenApi from "../modules/students/student.swagger.js";
 import teacherOpenApi from "../modules/teachers/teacher.swagger.js";
 import adminOpenApi from "../modules/admin/admin.swagger.js";
 import academicOpenApi from "../modules/admin/academics/academic.swagger.js";
+import userOpenApi from "../modules/admin/users/user.swagger.js";
 
 export default {
   ...authOpenApi,
@@ -19,6 +20,8 @@ export default {
     ...teacherOpenApi.tags,
     ...adminOpenApi.tags,
     ...academicOpenApi.tags,
+    ...userOpenApi.tags,
+
   ],
 
   paths: {
@@ -27,6 +30,8 @@ export default {
     ...teacherOpenApi.paths,
     ...adminOpenApi.paths,
     ...academicOpenApi.paths,
+    ...userOpenApi.paths,
+
   },
 
   components: {
@@ -38,6 +43,8 @@ export default {
       ...teacherOpenApi.components.schemas,
       ...adminOpenApi.components.schemas,
       ...academicOpenApi.components.schemas,
+      ...userOpenApi.components.schemas,
+
     },
   },
 };

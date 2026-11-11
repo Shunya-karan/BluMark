@@ -11,6 +11,8 @@ import studentRoutes from "./modules/students/student.routes.js";
 import teacherRoutes from "./modules/teachers/teacher.routes.js";
 import adminRoutes from "./modules/admin/admin.routes.js";
 import academicRoutes from "./modules/admin/academics/academic.routes.js";
+import userRoutes from "./modules/admin/users/user.routes.js";
+
 import notFound from "./middleware/not-found.js";
 import errorHandler from "./middleware/error-handler.js";
 
@@ -60,8 +62,10 @@ app.get("/api/health/db", async (_req, res) => {
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/student", studentRoutes);
 app.use("/api/v1/teacher", teacherRoutes);
+
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/admin", academicRoutes);
+app.use("/api/v1/admin", userRoutes);
 
 app.get("/api/docs.json", (_req, res) => res.json(openApi));
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openApi));
