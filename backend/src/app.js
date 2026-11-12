@@ -13,6 +13,7 @@ import adminRoutes from "./modules/admin/admin.routes.js";
 import academicRoutes from "./modules/admin/academics/academic.routes.js";
 import userRoutes from "./modules/admin/users/user.routes.js";
 import deviceRoutes from "./modules/admin/devices/device.routes.js";
+import notificationRoutes from "./modules/admin/notifications/notification.routes.js";
 
 import notFound from "./middleware/not-found.js";
 import errorHandler from "./middleware/error-handler.js";
@@ -68,6 +69,7 @@ app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/admin", academicRoutes);
 app.use("/api/v1/admin", userRoutes);
 app.use("/api/v1/admin", deviceRoutes);
+app.use("/api/v1/admin", notificationRoutes);
 
 app.get("/api/docs.json", (_req, res) => res.json(openApi));
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openApi));

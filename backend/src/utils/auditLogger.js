@@ -29,6 +29,7 @@ export const AUDIT_ACTIONS = Object.freeze({
   MATERIAL_UPLOADED: "MATERIAL_UPLOADED",
   MATERIAL_UPDATED: "MATERIAL_UPDATED",
   MATERIAL_DELETED: "MATERIAL_DELETED",
+  NOTIFICATION_SENT: "NOTIFICATION_SENT",
 });
 
 const BLOCKED_KEYS = /password|secret|token|authorization|cookie|credential|privatekey|apikey|bletokenseed|storagekey|signedurl|presignedurl/i;

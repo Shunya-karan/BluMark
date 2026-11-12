@@ -6,6 +6,7 @@ import adminOpenApi from "../modules/admin/admin.swagger.js";
 import academicOpenApi from "../modules/admin/academics/academic.swagger.js";
 import userOpenApi from "../modules/admin/users/user.swagger.js";
 import deviceOpenApi from "../modules/admin/devices/device.swagger.js";
+import notificationOpenApi from "../modules/admin/notifications/notification.swagger.js";
 
 export default {
   ...authOpenApi,
@@ -22,6 +23,8 @@ export default {
     ...adminOpenApi.tags,
     ...academicOpenApi.tags,
     ...userOpenApi.tags,
+    ...notificationOpenApi.tags,
+
 
   ],
 
@@ -33,6 +36,7 @@ export default {
     ...academicOpenApi.paths,
     ...userOpenApi.paths,
     ...deviceOpenApi.paths,
+    ...notificationOpenApi.paths,
 
   },
 
@@ -47,6 +51,7 @@ export default {
       ...academicOpenApi.components.schemas,
       ...userOpenApi.components.schemas,
       ...deviceOpenApi.components.schemas,
+      ...notificationOpenApi.components.schemas,
 
     },
   },
