@@ -1,4 +1,5 @@
 import prisma from "../../config/prisma.js";
+import AppError from "../../utils/AppError.js";
 
 const profileInclude = {
   institution: { select: { id: true, name: true, code: true, type: true, isActive: true } },
@@ -214,33 +215,147 @@ export function findStudentDevices(institutionId, profileId) {
   });
 }
 
-export function registerPendingDevice({ institutionId, profileId, deviceIdentifier, publicKey }) {
+
+export function registerPendingDevice({
+  institutionId,
+  profileId,
+  deviceIdentifier,
+  publicKey,
+}) {
   return prisma.$transaction(async (tx) => {
+    const locked = await tx.$queryRaw`
+      SELECT id
+      FROM profiles
+      WHERE id = ${profileId}::uuid
+        AND institution_id = ${institutionId}::uuid
+        AND role = 'STUDENT'::user_role
+        AND is_active = true
+      FOR UPDATE
+    `;
+
+    if (!locked.length) {
+      throw new AppError("Student account is inactive", 403);
+    }
+
     const activeOrPending = await tx.device.findFirst({
-      where: { institutionId, profileId, status: { in: ["ACTIVE", "PENDING"] } },
+      where: {
+        institutionId,
+        profileId,
+        status: { in: ["ACTIVE", "PENDING"] },
+      },
       select: { id: true, status: true },
     });
-    if (activeOrPending) return { kind: activeOrPending.status === "ACTIVE" ? "active_exists" : "pending_exists" };
-    const used = await tx.device.findFirst({ where: { institutionId, deviceIdentifier }, select: { id: true } });
+
+    if (activeOrPending) {
+      return {
+        kind: activeOrPending.status === "ACTIVE"
+          ? "active_exists"
+          : "pending_exists",
+      };
+    }
+
+    const used = await tx.device.findFirst({
+      where: { institutionId, deviceIdentifier },
+      select: { id: true },
+    });
+
     if (used) return { kind: "identifier_in_use" };
-    const device = await tx.device.create({ data: { institutionId, profileId, deviceIdentifier, publicKey, status: "PENDING" } });
-    await tx.auditLog.create({ data: { institutionId, actorId: profileId, action: "DEVICE_REGISTRATION_REQUESTED", entityType: "DEVICE", entityId: device.id } });
+
+    const device = await tx.device.create({
+      data: {
+        institutionId,
+        profileId,
+        deviceIdentifier,
+        publicKey,
+        status: "PENDING",
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        institutionId,
+        actorId: profileId,
+        action: "DEVICE_REGISTRATION_REQUESTED",
+        entityType: "DEVICE",
+        entityId: device.id,
+      },
+    });
+
     return { kind: "created", device };
   });
 }
 
-export function createReplacementRequest({ institutionId, profileId, deviceIdentifier, publicKey, reason }) {
+export function createReplacementRequest({
+  institutionId,
+  profileId,
+  deviceIdentifier,
+  publicKey,
+  reason,
+}) {
   return prisma.$transaction(async (tx) => {
-    const activeDevice = await tx.device.findFirst({ where: { institutionId, profileId, status: "ACTIVE" }, select: { id: true } });
-    if (!activeDevice) return { kind: "no_active_device" };
-    const pending = await tx.deviceReplacementRequest.findFirst({ where: { institutionId, profileId, status: "PENDING" }, select: { id: true } });
-    if (pending) return { kind: "pending_exists" };
-    const used = await tx.device.findFirst({ where: { institutionId, deviceIdentifier }, select: { id: true } });
-    if (used) return { kind: "identifier_in_use" };
-    const request = await tx.deviceReplacementRequest.create({
-      data: { institutionId, profileId, requestedDeviceIdentifier: deviceIdentifier, publicKey, reason },
+    const locked = await tx.$queryRaw`
+      SELECT id
+      FROM profiles
+      WHERE id = ${profileId}::uuid
+        AND institution_id = ${institutionId}::uuid
+        AND role = 'STUDENT'::user_role
+        AND is_active = true
+      FOR UPDATE
+    `;
+
+    if (!locked.length) {
+      throw new AppError("Student account is inactive", 403);
+    }
+
+    const activeDevice = await tx.device.findFirst({
+      where: {
+        institutionId,
+        profileId,
+        status: "ACTIVE",
+      },
+      select: { id: true },
     });
-    await tx.auditLog.create({ data: { institutionId, actorId: profileId, action: "DEVICE_REPLACEMENT_REQUESTED", entityType: "DEVICE_REPLACEMENT_REQUEST", entityId: request.id } });
+
+    if (!activeDevice) return { kind: "no_active_device" };
+
+    const pending = await tx.deviceReplacementRequest.findFirst({
+      where: {
+        institutionId,
+        profileId,
+        status: "PENDING",
+      },
+      select: { id: true },
+    });
+
+    if (pending) return { kind: "pending_exists" };
+
+    const used = await tx.device.findFirst({
+      where: { institutionId, deviceIdentifier },
+      select: { id: true },
+    });
+
+    if (used) return { kind: "identifier_in_use" };
+
+    const request = await tx.deviceReplacementRequest.create({
+      data: {
+        institutionId,
+        profileId,
+        requestedDeviceIdentifier: deviceIdentifier,
+        publicKey,
+        reason,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        institutionId,
+        actorId: profileId,
+        action: "DEVICE_REPLACEMENT_REQUESTED",
+        entityType: "DEVICE_REPLACEMENT_REQUEST",
+        entityId: request.id,
+      },
+    });
+
     return { kind: "created", request };
   });
 }
