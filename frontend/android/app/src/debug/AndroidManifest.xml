@@ -4,4 +4,6 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Local HTTP is allowed only in debug builds. Production must use HTTPS. -->
+    <application android:usesCleartextTraffic="true" />
 </manifest>

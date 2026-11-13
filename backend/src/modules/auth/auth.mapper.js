@@ -7,6 +7,9 @@ export function sanitizeProfile(profile) {
     phone: profile.phone,
     role: profile.role,
     isActive: profile.isActive,
+    // This flag is deliberately exposed so clients can route a provisioned
+    // account to the existing forced-password-change endpoint.
+    mustChangePassword: Boolean(profile.credential?.mustChangePassword),
     institution: profile.institution
       ? {
           id: profile.institution.id,

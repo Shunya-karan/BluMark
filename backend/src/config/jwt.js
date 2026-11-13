@@ -11,8 +11,8 @@ export function assertJwtConfig() {
   if (!secret || secret.startsWith("CHANGE_ME") || Buffer.byteLength(secret, "utf8") < 32) {
     throw new Error("JWT_ACCESS_SECRET must contain at least 32 bytes.");
   }
-  if (!Number.isInteger(accessTokenTtl) || accessTokenTtl < 300 || accessTokenTtl > 900) {
-    throw new Error("JWT_ACCESS_TTL_SECONDS must be between 300 and 900.");
+  if (!Number.isInteger(accessTokenTtl) || accessTokenTtl < 300 || accessTokenTtl > 604800) {
+    throw new Error("JWT_ACCESS_TTL_SECONDS must be between 300 and 604800 (7 days).");
   }
 }
 

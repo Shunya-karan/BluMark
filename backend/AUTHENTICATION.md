@@ -18,7 +18,7 @@ Rollback: stop the new API and restore the pre-migration database backup. The mi
 
 ## Tokens and clients
 
-Access JWTs use HS256 and contain only `sub`, `sid`, and `typ=access`. They expire within 5-15 minutes (default 15). The API validates algorithm, signature, issuer, audience, expiry, token type, session family, profile status, credential activation, and institution status on each protected request. The database lookup makes logout and password-reset revocation effective immediately; short expiry is an additional limit.
+Access JWTs use HS256 and contain only `sub`, `sid`, and `typ=access`. `JWT_ACCESS_TTL_SECONDS` may be configured from 300 seconds up to 604800 seconds (7 days). This deployment is configured for 7 days. The API validates algorithm, signature, issuer, audience, expiry, token type, session family, profile status, credential activation, and institution status on each protected request. Logout and password-reset revocation still take effect immediately through the database session lookup, but a long-lived JWT increases the exposure window if stolen.
 
 Refresh tokens are 256-bit opaque random values; PostgreSQL stores only SHA-256 hashes. Every rotation retains the consumed hash so reuse revokes the whole family. Refresh operations serialize on the consumed row with a PostgreSQL lock. Sessions expire after 7 days idle or 30 days absolute.
 
@@ -38,7 +38,7 @@ Login, refresh, activation, and reset endpoints are rate limited. Five failed lo
 
 ## Environment
 
-Copy `.env.example` to `.env`. Configure `DATABASE_URL`, `FRONTEND_URL`, and a random `JWT_ACCESS_SECRET` of at least 32 bytes. `JWT_ACCESS_TTL_SECONDS` must be 300-900. Production requires SMTP settings and numeric `TRUST_PROXY_HOPS` matching the trusted TLS proxy chain. Production frontend origins must use HTTPS.
+Copy `.env.example` to `.env`. Configure `DATABASE_URL`, `FRONTEND_URL`, and a random `JWT_ACCESS_SECRET` of at least 32 bytes. `JWT_ACCESS_TTL_SECONDS` must be between 300 and 604800. Production requires SMTP settings and numeric `TRUST_PROXY_HOPS` matching the trusted TLS proxy chain. Production frontend origins must use HTTPS.
 
 ## Endpoints
 

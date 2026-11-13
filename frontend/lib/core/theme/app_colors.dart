@@ -1,28 +1,35 @@
-
 import 'package:flutter/material.dart';
 
 class AppColors {
   AppColors._();
 
-  // Soft brand colours
-  static const Color primary = Color(0xFFBDECEF);
-  static const Color cyan = Color(0xFFDDF3FA);
-  static const Color deepBlue = Color(0xFFE5F0FF);
+  // Blu-Mark identity
+  static const Color primary = Color(0xFF2563EB);
+  static const Color deepBlue = Color(0xFF1E40AF);
+  static const Color teal = Color(0xFF0D9488);
+  static const Color cyan = Color(0xFF22B8CF);
 
-  // Pastel accents
-  static const Color mint = Color(0xFFDDF7F5);
-  static const Color lavender = Color(0xFFF0ECFF);
+  // Light accents
+  static const Color lightBlue = Color(0xFFEFF6FF);
+  static const Color lightTeal = Color(0xFFE6FFFA);
+  static const Color softCyan = Color(0xFFECFEFF);
+  static const Color lavender = Color(0xFFF3F0FF);
+  static const Color mint = lightTeal;
 
-  // Backgrounds
-  static const Color background = Color(0xFFFAFCFE);
+  // Surfaces
+  static const Color background = Color(0xFFF4F8FC);
   static const Color surface = Color(0xFFFFFFFF);
+  static const Color secondarySurface = Color(0xFFF8FAFC);
+  static const Color border = Color(0xFFDCE6F0);
 
   // Typography
-  static const Color textPrimary = Color(0xFF657789);
-  static const Color textSecondary = Color(0xFF91A0AE);
+  static const Color textPrimary = Color(0xFF172B4D);
+  static const Color textSecondary = Color(0xFF526780);
+  static const Color textMuted = Color(0xFF71839A);
+  static const Color white = Color(0xFFFFFFFF);
 
-  // Borders and status
-  static const Color border = Color(0xFFEDF2F6);
-  static const Color success = Color(0xFFBDEBD2);
-  static const Color error = Color(0xFFF8DADA);
+  // Status
+  static const Color success = Color(0xFF16A34A);
+  static const Color error = Color(0xFFDC2626);
+  static const Color warning = Color(0xFFD97706);
 }

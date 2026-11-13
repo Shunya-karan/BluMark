@@ -103,7 +103,9 @@ export async function login({ email, password, ipAddress, userAgent }) {
   }
 
   await clearFailedLogin(credential.profileId);
-  return createSession(credential.profile, { ipAddress, userAgent });
+  // The selected profile relation intentionally excludes password material, but
+  // the safe forced-change flag is needed by JSON clients after first login.
+  return createSession({ ...credential.profile, credential }, { ipAddress, userAgent });
 }
 
 export async function resolveAuthenticatedContext(accessToken) {
@@ -133,7 +135,7 @@ export async function getCurrentUser(id) {
   if (!profile || !activeProfile({ ...profile.profile, credential: profile })) {
     throw new AppError("Account is inactive", 403);
   }
-  return sanitizeProfile(profile.profile);
+  return sanitizeProfile({ ...profile.profile, credential: profile });
 }
 
 export async function refreshSession(refreshToken, metadata = {}) {
