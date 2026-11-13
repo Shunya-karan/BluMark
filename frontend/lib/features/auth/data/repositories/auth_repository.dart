@@ -17,15 +17,20 @@ class AuthRepository {
     var access = await _storage.getAccessToken();
     if (access == null) throw StateError('No saved session');
     try {
-      return AuthUser.fromJson(await _remote.me(access));
+      final meData = await _remote.me(access);
+      return AuthUser.fromJson(meData);
     } catch (_) {
       final refresh = await _storage.getRefreshToken();
-      if (refresh == null) rethrow;
+      if (refresh == null) {
+        await _storage.clearTokens();
+        rethrow;
+      }
       try {
         final data = await _remote.refresh(refresh);
         await _saveTokens(data);
         access = data['accessToken'] as String;
-        return AuthUser.fromJson(await _remote.me(access));
+        final meData = await _remote.me(access);
+        return AuthUser.fromJson(meData);
       } catch (_) {
         await _storage.clearTokens();
         rethrow;
@@ -36,22 +41,40 @@ class AuthRepository {
   Future<void> logout() async {
     final access = await _storage.getAccessToken();
     try {
-      if (access != null) await _remote.logout(access);
+      if (access != null) {
+        await _remote.logout(access);
+      }
+    } catch (_) {
+      // Ignore network errors on server-side logout, clear local tokens anyway
     } finally {
       await _storage.clearTokens();
     }
   }
 
   Future<void> forgotPassword(String email) => _remote.forgotPassword(email);
-  Future<void> changePassword(String current, String next) async {
+
+  Future<AuthUser> changePassword({
+    required String email,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
     final access = await _storage.getAccessToken();
     if (access == null) throw StateError('Session has expired');
-    await _remote.changePassword(access, current, next);
+    await _remote.changePassword(access, currentPassword, newPassword);
     await _storage.clearTokens();
+
+    // Re-authenticate with new password after backend confirmed password change
+    return login(email, newPassword);
   }
 
   Future<void> _saveTokens(Map<String, dynamic> data) async {
-    await _storage.saveAccessToken(data['accessToken'] as String);
-    await _storage.saveRefreshToken(data['refreshToken'] as String);
+    final accessToken = data['accessToken'] as String?;
+    final refreshToken = data['refreshToken'] as String?;
+    if (accessToken != null) {
+      await _storage.saveAccessToken(accessToken);
+    }
+    if (refreshToken != null) {
+      await _storage.saveRefreshToken(refreshToken);
+    }
   }
 }
