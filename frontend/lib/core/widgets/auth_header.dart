@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
-class AuthHeader extends StatelessWidget {
+class AuthHeader extends StatelessWidget implements PreferredSizeWidget {
   const AuthHeader({
     super.key,
     this.onBack,
@@ -18,25 +18,28 @@ class AuthHeader extends StatelessWidget {
   final bool showLogo;
 
   @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 52,
-      width: double.infinity,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          if (showLogo)
-            Center(
-              child: Image.asset(
-                'assets/images/logo2.png',
-                height: logoHeight,
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.high,
-              ),
-            ),
-          if (onBack != null)
-            Positioned(
-              left: 0,
+    return AppBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      centerTitle: true,
+      automaticallyImplyLeading: false,
+      title: showLogo
+          ? Image.asset(
+              'assets/images/logo2.png',
+              height: logoHeight,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+            )
+          : null,
+      leadingWidth: 110,
+      leading: onBack != null
+          ? Padding(
+              padding: const EdgeInsets.only(left: 8.0),
               child: TextButton.icon(
                 onPressed: isLoading ? null : onBack,
                 icon: isLoading
@@ -62,17 +65,12 @@ class AuthHeader extends StatelessWidget {
                   ),
                 ),
                 style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 8,
-                  ),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
               ),
-            ),
-        ],
-      ),
+            )
+          : null,
     );
   }
 }

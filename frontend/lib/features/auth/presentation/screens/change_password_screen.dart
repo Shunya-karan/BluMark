@@ -57,6 +57,14 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      extendBodyBehindAppBar: true,
+      appBar: AuthHeader(
+        onBack: isBusy ? null : _handleSignOut,
+        backLabel: 'Sign out',
+        isLoading: _isSigningOut,
+        showLogo: true,
+        logoHeight: 60,
+      ),
       body: Stack(
         children: [
           const BackgroundOrbs(),
@@ -74,14 +82,6 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        AuthHeader(
-                          onBack: isBusy ? null : _handleSignOut,
-                          backLabel: 'Sign out',
-                          isLoading: _isSigningOut,
-                          showLogo: true,
-                          logoHeight: 44,
-                        ),
-                        const SizedBox(height: 28),
                         const Text(
                           'Create a New Password',
                           style: TextStyle(

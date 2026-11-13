@@ -31,6 +31,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      extendBodyBehindAppBar: true,
+      appBar: AuthHeader(
+        onBack: _isSending ? null : () => context.go('/role'),
+        showLogo: true,
+        logoHeight: 60,
+        isLoading: _isSending,
+      ),
       body: Stack(
         children: [
           const BackgroundOrbs(),
@@ -48,13 +55,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        AuthHeader(
-                          onBack: _isSending ? null : () => context.go('/role'),
-                          showLogo: true,
-                          logoHeight: 44,
-                          isLoading: _isSending,
-                        ),
-                        const SizedBox(height: 28),
                         const Text(
                           'Reset your password',
                           style: TextStyle(

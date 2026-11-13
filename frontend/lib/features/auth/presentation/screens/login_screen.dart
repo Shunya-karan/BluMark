@@ -47,6 +47,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      extendBodyBehindAppBar: true,
+      appBar: AuthHeader(
+        onBack: isBusy ? null : () => context.go('/role'),
+        showLogo: true,
+        logoHeight: 60,
+        isLoading: isBusy,
+      ),
       body: Stack(
         children: [
           const BackgroundOrbs(),
@@ -64,13 +71,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        AuthHeader(
-                          onBack: isBusy ? null : () => context.go('/role'),
-                          showLogo: true,
-                          logoHeight: 60,
-                          isLoading: isBusy,
-                        ),
-                        const SizedBox(height: 28),
                         const Text(
                           'Welcome back',
                           style: TextStyle(
