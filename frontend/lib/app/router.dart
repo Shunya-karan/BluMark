@@ -4,11 +4,26 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/presentation/providers/auth_provider.dart';
 import '../features/auth/presentation/screens/auth_screens.dart';
-import '../features/dashboard/dashboard_screen.dart';
+import '../features/teacher/dashboard/screens/teacher_dashboard_screen.dart';
+import '../features/teacher/classes/screens/teacher_classes_screen.dart';
+import '../features/teacher/classes/screens/class_details_screen.dart';
+import '../features/teacher/students/screens/class_students_screen.dart';
+import '../features/teacher/attendance/screens/teacher_attendance_screen.dart';
+import '../features/teacher/attendance/screens/create_attendance_session_screen.dart';
+import '../features/teacher/attendance/screens/active_attendance_screen.dart';
+import '../features/teacher/attendance/screens/attendance_history_screen.dart';
+import '../features/teacher/attendance/screens/attendance_session_details_screen.dart';
+import '../features/teacher/timetable/screens/teacher_timetable_screen.dart';
+import '../features/teacher/study_materials/screens/teacher_materials_screen.dart';
+import '../features/teacher/study_materials/screens/upload_material_screen.dart';
+import '../features/teacher/notifications/screens/teacher_notifications_screen.dart';
+import '../features/teacher/profile/screens/teacher_profile_screen.dart';
+import '../features/teacher/profile/screens/edit_teacher_profile_screen.dart';
 import '../features/student/device/screens/device_information_screen.dart';
 import '../features/student/notifications/screens/notifications_screen.dart';
 import '../features/student/presentation/student_shell.dart';
 import '../features/student/subjects/screens/subjects_screen.dart';
+import '../features/student/profile/screens/edit_student_profile_screen.dart';
 
 class RouterNotifier extends ChangeNotifier {
   RouterNotifier(this._ref) {
@@ -49,26 +64,109 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/change-password',
         builder: (context, state) => const ChangePasswordScreen(),
       ),
+
+      // Student Routes
       GoRoute(
         path: '/student',
         builder: (context, state) => const StudentShell(),
+        routes: [
+          GoRoute(
+            path: 'profile/edit',
+            builder: (context, state) => const EditStudentProfileScreen(),
+          ),
+          GoRoute(
+            path: 'subjects',
+            builder: (context, state) => const SubjectsScreen(),
+          ),
+          GoRoute(
+            path: 'notifications',
+            builder: (context, state) => const NotificationsScreen(),
+          ),
+          GoRoute(
+            path: 'device',
+            builder: (context, state) => const DeviceInformationScreen(),
+          ),
+        ],
       ),
-      GoRoute(
-        path: '/student/subjects',
-        builder: (context, state) => const SubjectsScreen(),
-      ),
-      GoRoute(
-        path: '/student/notifications',
-        builder: (context, state) => const NotificationsScreen(),
-      ),
-      GoRoute(
-        path: '/student/device',
-        builder: (context, state) => const DeviceInformationScreen(),
-      ),
+
+      // Teacher Routes
       GoRoute(
         path: '/teacher',
-        builder: (context, state) =>
-            const DashboardScreen(roleTitle: 'Teacher'),
+        builder: (context, state) => const TeacherDashboardScreen(),
+        routes: [
+          GoRoute(
+            path: 'classes',
+            builder: (context, state) => const TeacherClassesScreen(),
+            routes: [
+              GoRoute(
+                path: ':classId',
+                builder: (context, state) => const ClassDetailsScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'students',
+                    builder: (context, state) => const ClassStudentsScreen(),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'attendance',
+            builder: (context, state) => const TeacherAttendanceScreen(),
+            routes: [
+              GoRoute(
+                path: 'create',
+                builder: (context, state) => const CreateAttendanceSessionScreen(),
+              ),
+              GoRoute(
+                path: 'active/:sessionId',
+                builder: (context, state) => const ActiveAttendanceScreen(),
+              ),
+              GoRoute(
+                path: 'history',
+                builder: (context, state) => const AttendanceHistoryScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'sessions/:sessionId',
+                    builder: (context, state) => const AttendanceSessionDetailsScreen(),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'sessions/:sessionId',
+                builder: (context, state) => const AttendanceSessionDetailsScreen(),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'timetable',
+            builder: (context, state) => const TeacherTimetableScreen(),
+          ),
+          GoRoute(
+            path: 'materials',
+            builder: (context, state) => const TeacherMaterialsScreen(),
+            routes: [
+              GoRoute(
+                path: 'upload',
+                builder: (context, state) => const UploadMaterialScreen(),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'notifications',
+            builder: (context, state) => const TeacherNotificationsScreen(),
+          ),
+          GoRoute(
+            path: 'profile',
+            builder: (context, state) => const TeacherProfileScreen(),
+            routes: [
+              GoRoute(
+                path: 'edit',
+                builder: (context, state) => const EditTeacherProfileScreen(),
+              ),
+            ],
+          ),
+        ],
       ),
     ],
     redirect: (context, state) {

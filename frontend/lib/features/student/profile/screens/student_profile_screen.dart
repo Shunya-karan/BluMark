@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../presentation/widgets/student_ui.dart';
 import '../../providers/student_providers.dart';
@@ -9,6 +10,7 @@ import '../widgets/profile_information_card.dart';
 
 class StudentProfileScreen extends ConsumerWidget {
   const StudentProfileScreen({super.key});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) => StudentAsyncPage(
     value: ref.watch(profileProvider),
@@ -47,6 +49,12 @@ class StudentProfileScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             ListTile(
+              leading: const Icon(Icons.edit_rounded, color: AppColors.primary),
+              title: const Text('Edit profile', style: TextStyle(fontWeight: FontWeight.w600)),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.push('/student/profile/edit'),
+            ),
+            ListTile(
               leading: const Icon(Icons.phone_android_rounded),
               title: const Text('Registered device'),
               trailing: const Icon(Icons.chevron_right_rounded),
@@ -59,8 +67,8 @@ class StudentProfileScreen extends ConsumerWidget {
               onTap: () => context.push('/student/subjects'),
             ),
             ListTile(
-              leading: const Icon(Icons.logout_rounded),
-              title: const Text('Sign out'),
+              leading: const Icon(Icons.logout_rounded, color: AppColors.error),
+              title: const Text('Sign out', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600)),
               onTap: () => ref.read(authProvider.notifier).logout(),
             ),
           ],

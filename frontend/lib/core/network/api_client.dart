@@ -46,6 +46,14 @@ class ApiClient {
   }) => _request(
     () => dio.patch(path, data: data, options: _options(accessToken)),
   );
+  //
+  // Future<Map<String, dynamic>> patch(
+  //   String path, {
+  //   Object? data,
+  //   String? accessToken,
+  // }) => _request(
+  //   () => dio.patch(path, data: data, options: _options(accessToken)),
+  // );
 
   Future<Map<String, dynamic>> delete(
     String path, {

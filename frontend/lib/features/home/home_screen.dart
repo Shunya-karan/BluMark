@@ -26,7 +26,7 @@ class HomeScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: const Icon(
-                      Icons.bluetooth_searching_rounded,
+                      Icons.verified_user_rounded,
                       color: AppColors.primary,
                       size: 36,
                     ),
