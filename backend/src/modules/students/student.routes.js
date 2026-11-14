@@ -38,6 +38,7 @@ router.get("/subjects/:subjectId", validate(subjectParamSchema, "params"), contr
 
 router.get("/study-materials", validate(studyMaterialsSchema, "query"), controller.studyMaterials);
 router.get("/study-materials/:materialId", validate(materialParamSchema, "params"), controller.studyMaterial);
+router.get("/study-materials/:materialId/download", validate(materialParamSchema, "params"), controller.studyMaterialDownload);
 
 router.patch("/notifications/read-all", controller.markAllNotificationsRead);
 router.get("/notifications", validate(notificationsSchema, "query"), controller.notifications);

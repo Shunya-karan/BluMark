@@ -4,36 +4,60 @@ import 'api_exception.dart';
 
 class ApiClient {
   ApiClient()
-      : dio = Dio(
-          BaseOptions(
-            baseUrl: AppConfig.apiBaseUrl,
-            connectTimeout: const Duration(seconds: 12),
-            receiveTimeout: const Duration(seconds: 15),
-            sendTimeout: const Duration(seconds: 15),
-            headers: const {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-          ),
-        );
+    : dio = Dio(
+        BaseOptions(
+          baseUrl: AppConfig.apiBaseUrl,
+          connectTimeout: const Duration(seconds: 12),
+          receiveTimeout: const Duration(seconds: 15),
+          sendTimeout: const Duration(seconds: 15),
+          headers: const {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
 
   final Dio dio;
 
-  Future<Map<String, dynamic>> get(String path, {String? accessToken}) =>
-      _request(() => dio.get(path, options: _options(accessToken)));
+  Future<Map<String, dynamic>> get(
+    String path, {
+    String? accessToken,
+    Map<String, dynamic>? queryParameters,
+  }) => _request(
+    () => dio.get(
+      path,
+      queryParameters: queryParameters,
+      options: _options(accessToken),
+    ),
+  );
 
   Future<Map<String, dynamic>> post(
     String path, {
     Object? data,
     String? accessToken,
-  }) =>
-      _request(
-        () => dio.post(path, data: data, options: _options(accessToken)),
-      );
+  }) => _request(
+    () => dio.post(path, data: data, options: _options(accessToken)),
+  );
+
+  Future<Map<String, dynamic>> patch(
+    String path, {
+    Object? data,
+    String? accessToken,
+  }) => _request(
+    () => dio.patch(path, data: data, options: _options(accessToken)),
+  );
+
+  Future<Map<String, dynamic>> delete(
+    String path, {
+    Object? data,
+    String? accessToken,
+  }) => _request(
+    () => dio.delete(path, data: data, options: _options(accessToken)),
+  );
 
   Options _options(String? token) => Options(
-        headers: token == null ? null : {'Authorization': 'Bearer $token'},
-      );
+    headers: token == null ? null : {'Authorization': 'Bearer $token'},
+  );
 
   Future<Map<String, dynamic>> _request(
     Future<Response<dynamic>> Function() request,

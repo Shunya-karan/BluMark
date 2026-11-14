@@ -5,13 +5,14 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/presentation/providers/auth_provider.dart';
 import '../features/auth/presentation/screens/auth_screens.dart';
 import '../features/dashboard/dashboard_screen.dart';
+import '../features/student/device/screens/device_information_screen.dart';
+import '../features/student/notifications/screens/notifications_screen.dart';
+import '../features/student/presentation/student_shell.dart';
+import '../features/student/subjects/screens/subjects_screen.dart';
 
 class RouterNotifier extends ChangeNotifier {
   RouterNotifier(this._ref) {
-    _ref.listen<AuthState>(
-      authProvider,
-      (previous, next) => notifyListeners(),
-    );
+    _ref.listen<AuthState>(authProvider, (previous, next) => notifyListeners());
   }
 
   final Ref _ref;
@@ -37,9 +38,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/login/:role',
-        builder: (context, state) => LoginScreen(
-          role: state.pathParameters['role'] ?? 'STUDENT',
-        ),
+        builder: (context, state) =>
+            LoginScreen(role: state.pathParameters['role'] ?? 'STUDENT'),
       ),
       GoRoute(
         path: '/forgot',
@@ -51,17 +51,31 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/student',
-        builder: (context, state) => const DashboardScreen(roleTitle: 'Student'),
+        builder: (context, state) => const StudentShell(),
+      ),
+      GoRoute(
+        path: '/student/subjects',
+        builder: (context, state) => const SubjectsScreen(),
+      ),
+      GoRoute(
+        path: '/student/notifications',
+        builder: (context, state) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/student/device',
+        builder: (context, state) => const DeviceInformationScreen(),
       ),
       GoRoute(
         path: '/teacher',
-        builder: (context, state) => const DashboardScreen(roleTitle: 'Teacher'),
+        builder: (context, state) =>
+            const DashboardScreen(roleTitle: 'Teacher'),
       ),
     ],
     redirect: (context, state) {
       final auth = ref.read(authProvider);
       final path = state.matchedLocation;
-      final isPublic = path == '/splash' ||
+      final isPublic =
+          path == '/splash' ||
           path == '/role' ||
           path.startsWith('/login') ||
           path == '/forgot';
@@ -105,18 +119,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         final homePath = user.role.toUpperCase() == 'STUDENT'
             ? '/student'
             : user.role.toUpperCase() == 'TEACHER'
-                ? '/teacher'
-                : '/role';
+            ? '/teacher'
+            : '/role';
 
         if (path == '/splash' || isPublic || path == '/change-password') {
           return homePath;
         }
 
-        if (user.role.toUpperCase() == 'STUDENT' && path == '/teacher') {
+        if (user.role.toUpperCase() == 'STUDENT' &&
+            path.startsWith('/teacher')) {
           return '/student';
         }
 
-        if (user.role.toUpperCase() == 'TEACHER' && path == '/student') {
+        if (user.role.toUpperCase() == 'TEACHER' &&
+            path.startsWith('/student')) {
           return '/teacher';
         }
 

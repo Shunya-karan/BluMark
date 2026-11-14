@@ -50,7 +50,8 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final isBusy = _isSubmitting ||
+    final isBusy =
+        _isSubmitting ||
         _isSigningOut ||
         authState.status == AuthStatus.loading;
     final isRedirecting = authState.redirecting;
@@ -150,8 +151,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                             labelText: 'New Password',
                             prefixIcon: const Icon(Icons.password_rounded),
                             suffixIcon: IconButton(
-                              tooltip:
-                                  _obscureNew ? 'Show password' : 'Hide password',
+                              tooltip: _obscureNew
+                                  ? 'Show password'
+                                  : 'Hide password',
                               onPressed: () {
                                 setState(() {
                                   _obscureNew = !_obscureNew;
@@ -190,8 +192,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                           onFieldSubmitted: (_) => _handleSubmit(isBusy),
                           decoration: InputDecoration(
                             labelText: 'Confirm New Password',
-                            prefixIcon:
-                                const Icon(Icons.check_circle_outline_rounded),
+                            prefixIcon: const Icon(
+                              Icons.check_circle_outline_rounded,
+                            ),
                             suffixIcon: IconButton(
                               tooltip: _obscureConfirm
                                   ? 'Show password'
@@ -226,12 +229,13 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                           _ErrorBox(message: _errorMessage!),
                         const SizedBox(height: 26),
                         ElevatedButton(
-                          onPressed:
-                              isBusy ? null : () => _handleSubmit(isBusy),
+                          onPressed: isBusy
+                              ? null
+                              : () => _handleSubmit(isBusy),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
-                            disabledBackgroundColor:
-                                AppColors.primary.withValues(alpha: 0.6),
+                            disabledBackgroundColor: AppColors.primary
+                                .withValues(alpha: 0.6),
                             minimumSize: const Size(double.infinity, 54),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
@@ -306,10 +310,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
     });
 
     try {
-      final error = await ref.read(authProvider.notifier).changePassword(
-            currentPassword: currentPass,
-            newPassword: newPass,
-          );
+      final error = await ref
+          .read(authProvider.notifier)
+          .changePassword(currentPassword: currentPass, newPassword: newPass);
 
       if (!mounted) return;
 
@@ -365,9 +368,7 @@ class _ErrorBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.error.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: AppColors.error.withValues(alpha: 0.25),
-        ),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [

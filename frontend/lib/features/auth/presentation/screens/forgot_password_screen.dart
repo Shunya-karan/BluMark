@@ -98,8 +98,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                             if (trimmed.isEmpty) {
                               return 'Enter your email address';
                             }
-                            if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                                .hasMatch(trimmed)) {
+                            if (!RegExp(
+                              r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                            ).hasMatch(trimmed)) {
                               return 'Enter a valid email address';
                             }
                             return null;
@@ -114,7 +115,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                               color: AppColors.lightBlue,
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(
-                                color: AppColors.primary.withValues(alpha: 0.25),
+                                color: AppColors.primary.withValues(
+                                  alpha: 0.25,
+                                ),
                               ),
                             ),
                             child: Row(
@@ -147,8 +150,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                               : () => _handleSendReset(_isSending),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
-                            disabledBackgroundColor:
-                                AppColors.primary.withValues(alpha: 0.6),
+                            disabledBackgroundColor: AppColors.primary
+                                .withValues(alpha: 0.6),
                             minimumSize: const Size(double.infinity, 54),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
@@ -223,15 +226,16 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     });
 
     try {
-      final error = await ref.read(authProvider.notifier).forgotPassword(
-            _emailController.text.trim(),
-          );
+      final error = await ref
+          .read(authProvider.notifier)
+          .forgotPassword(_emailController.text.trim());
 
       if (!mounted) return;
 
       setState(() {
         _isSending = false;
-        _infoMessage = error ??
+        _infoMessage =
+            error ??
             'If an account exists for that email, password reset instructions have been sent.';
       });
     } catch (e) {

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 
@@ -81,7 +80,7 @@ class HomeScreen extends StatelessWidget {
 
                   const Text(
                     'A simple and secure way to manage attendance, '
-                        'academic activities and classroom experiences.',
+                    'academic activities and classroom experiences.',
                     style: TextStyle(
                       fontSize: 15,
                       height: 1.6,
@@ -95,7 +94,7 @@ class HomeScreen extends StatelessWidget {
                     icon: Icons.school_rounded,
                     title: 'Student Experience',
                     description:
-                    'View attendance, timetable, subjects and study materials.',
+                        'View attendance, timetable, subjects and study materials.',
                     color: AppColors.primary,
                   ),
 
@@ -105,7 +104,7 @@ class HomeScreen extends StatelessWidget {
                     icon: Icons.cast_for_education_rounded,
                     title: 'Teacher Experience',
                     description:
-                    'Manage classes, students and attendance sessions.',
+                        'Manage classes, students and attendance sessions.',
                     color: AppColors.deepBlue,
                   ),
 

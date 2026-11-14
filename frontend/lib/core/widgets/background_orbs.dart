@@ -28,10 +28,7 @@ class BackgroundOrbs extends StatelessWidget {
     return Container(
       height: size,
       width: size,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 }

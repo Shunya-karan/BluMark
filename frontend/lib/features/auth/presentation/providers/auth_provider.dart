@@ -43,10 +43,8 @@ class AuthState {
 }
 
 final authRepositoryProvider = Provider(
-  (ref) => AuthRepository(
-    AuthRemoteDataSource(ApiClient()),
-    SecureStorageService(),
-  ),
+  (ref) =>
+      AuthRepository(AuthRemoteDataSource(ApiClient()), SecureStorageService()),
 );
 
 final authProvider = StateNotifierProvider<AuthController, AuthState>(
@@ -80,7 +78,8 @@ class AuthController extends StateNotifier<AuthState> {
         await _repository.logout();
         state = const AuthState(
           AuthStatus.unauthenticated,
-          message: 'The selected account type does not match your registered account.',
+          message:
+              'The selected account type does not match your registered account.',
         );
         return false;
       }

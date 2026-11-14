@@ -7,10 +7,7 @@ import '../../../../core/widgets/background_orbs.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({
-    super.key,
-    required this.role,
-  });
+  const LoginScreen({super.key, required this.role});
 
   final String role;
 
@@ -97,10 +94,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 18),
-                        _RolePill(
-                          role: widget.role,
-                          accentColor: accentColor,
-                        ),
+                        _RolePill(role: widget.role, accentColor: accentColor),
                         const SizedBox(height: 26),
                         TextFormField(
                           controller: _emailController,
@@ -117,8 +111,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             if (trimmed.isEmpty) {
                               return 'Enter your email address';
                             }
-                            if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                                .hasMatch(trimmed)) {
+                            if (!RegExp(
+                              r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                            ).hasMatch(trimmed)) {
                               return 'Enter a valid email address';
                             }
                             return null;
@@ -163,24 +158,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
-                            onPressed:
-                                isBusy ? null : () => context.go('/forgot'),
+                            onPressed: isBusy
+                                ? null
+                                : () => context.go('/forgot'),
                             child: const Text(
                               'Forgot password?',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: TextStyle(fontWeight: FontWeight.w600),
                             ),
                           ),
                         ),
                         const SizedBox(height: 12),
                         ElevatedButton(
-                          onPressed:
-                              isBusy ? null : () => _handleLogin(isBusy),
+                          onPressed: isBusy ? null : () => _handleLogin(isBusy),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: accentColor,
-                            disabledBackgroundColor:
-                                accentColor.withValues(alpha: 0.6),
+                            disabledBackgroundColor: accentColor.withValues(
+                              alpha: 0.6,
+                            ),
                             minimumSize: const Size(double.infinity, 54),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
@@ -220,8 +214,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         const SizedBox(height: 16),
                         Center(
                           child: TextButton(
-                            onPressed:
-                                isBusy ? null : () => context.go('/role'),
+                            onPressed: isBusy
+                                ? null
+                                : () => context.go('/role'),
                             child: const Text(
                               'Choose a different role',
                               style: TextStyle(
@@ -257,7 +252,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      final success = await ref.read(authProvider.notifier).login(
+      final success = await ref
+          .read(authProvider.notifier)
+          .login(
             _emailController.text.trim(),
             _passwordController.text,
             widget.role,
@@ -289,10 +286,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 }
 
 class _RolePill extends StatelessWidget {
-  const _RolePill({
-    required this.role,
-    required this.accentColor,
-  });
+  const _RolePill({required this.role, required this.accentColor});
 
   final String role;
   final Color accentColor;
@@ -309,9 +303,7 @@ class _RolePill extends StatelessWidget {
       decoration: BoxDecoration(
         color: accentColor.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(99),
-        border: Border.all(
-          color: accentColor.withValues(alpha: 0.25),
-        ),
+        border: Border.all(color: accentColor.withValues(alpha: 0.25)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -346,9 +338,7 @@ class _ErrorMessageBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.error.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: AppColors.error.withValues(alpha: 0.25),
-        ),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [

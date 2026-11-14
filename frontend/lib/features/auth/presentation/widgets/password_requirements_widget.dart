@@ -2,20 +2,14 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 
 class PasswordRequirementItem {
-  const PasswordRequirementItem({
-    required this.label,
-    required this.validator,
-  });
+  const PasswordRequirementItem({required this.label, required this.validator});
 
   final String label;
   final bool Function(String) validator;
 }
 
 class PasswordRequirementsWidget extends StatelessWidget {
-  const PasswordRequirementsWidget({
-    super.key,
-    required this.password,
-  });
+  const PasswordRequirementsWidget({super.key, required this.password});
 
   final String password;
 
@@ -95,7 +89,9 @@ class PasswordRequirementsWidget extends StatelessWidget {
                     child: Text(
                       req.label,
                       style: TextStyle(
-                        color: met ? AppColors.textPrimary : AppColors.textMuted,
+                        color: met
+                            ? AppColors.textPrimary
+                            : AppColors.textMuted,
                         fontSize: 13,
                         fontWeight: met ? FontWeight.w600 : FontWeight.w400,
                       ),

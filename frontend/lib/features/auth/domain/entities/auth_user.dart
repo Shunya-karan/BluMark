@@ -40,14 +40,14 @@ class AuthUser {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'fullName': fullName,
-        'email': email,
-        'role': role,
-        'institutionId': institutionId,
-        'institutionName': institutionName,
-        'mustChangePassword': mustChangePassword,
-        'studentNumber': studentNumber,
-        'employeeId': employeeId,
-      };
+    'id': id,
+    'fullName': fullName,
+    'email': email,
+    'role': role,
+    'institutionId': institutionId,
+    'institutionName': institutionName,
+    'mustChangePassword': mustChangePassword,
+    'studentNumber': studentNumber,
+    'employeeId': employeeId,
+  };
 }

@@ -4,10 +4,7 @@ import '../../core/theme/app_colors.dart';
 import '../auth/presentation/providers/auth_provider.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
-  const DashboardScreen({
-    super.key,
-    required this.roleTitle,
-  });
+  const DashboardScreen({super.key, required this.roleTitle});
 
   final String roleTitle;
 
@@ -48,7 +45,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       color: AppColors.primary,
                     ),
                   )
-                : const Icon(Icons.logout_rounded, color: AppColors.textPrimary),
+                : const Icon(
+                    Icons.logout_rounded,
+                    color: AppColors.textPrimary,
+                  ),
           ),
         ],
       ),
@@ -72,7 +72,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         children: [
                           CircleAvatar(
                             radius: 26,
-                            backgroundColor: accentColor.withValues(alpha: 0.15),
+                            backgroundColor: accentColor.withValues(
+                              alpha: 0.15,
+                            ),
                             child: Icon(
                               isTeacher
                                   ? Icons.cast_for_education_rounded
@@ -208,9 +210,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
             child: const Text('Sign Out'),
           ),
         ],

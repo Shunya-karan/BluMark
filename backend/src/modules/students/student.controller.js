@@ -72,6 +72,11 @@ export const studyMaterial = catchAsync(async (req, res) => {
   return sendResponse(res, 200, "Study material retrieved successfully", data);
 });
 
+export const studyMaterialDownload = catchAsync(async (req, res) => {
+  const data = await service.getStudyMaterialDownload(req.user, req.params.materialId);
+  return sendResponse(res, 200, "Study material download URL generated successfully", data);
+});
+
 export const notifications = catchAsync(async (req, res) => {
   const data = await service.getNotifications(req.user, req.query);
   return sendResponse(res, 200, "Notifications retrieved successfully", data);

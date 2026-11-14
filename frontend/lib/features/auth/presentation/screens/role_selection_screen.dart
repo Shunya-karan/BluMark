@@ -119,10 +119,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({
-    required this.title,
-    required this.subtitle,
-  });
+  const _SectionTitle({required this.title, required this.subtitle});
 
   final String title;
   final String subtitle;

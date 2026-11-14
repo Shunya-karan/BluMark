@@ -1,5 +1,6 @@
 import AppError from "../../utils/AppError.js";
 import * as repository from "./student.repository.js";
+import { getStudyMaterialSignedUrl } from "../../utils/s3Storage.js";
 
 const attendedStatuses = new Set(["PRESENT", "LATE", "EXCUSED"]);
 
@@ -240,6 +241,15 @@ export async function getStudyMaterial(user, materialId) {
   const material = await repository.findStudyMaterial(user.institutionId, context.classIds, materialId);
   if (!material) throw new AppError("Study material not found", 404);
   return material;
+}
+
+export async function getStudyMaterialDownload(user, materialId) {
+  const context = await studentContext(user);
+  requireEnrollment(context);
+  const material = await repository.findStudyMaterial(user.institutionId, context.classIds, materialId);
+  if (!material) throw new AppError("Study material not found", 404);
+  if (!material.storageKey) throw new AppError("This material is not available for download", 404);
+  return { downloadUrl: await getStudyMaterialSignedUrl(material.storageKey) };
 }
 
 export async function getNotifications(user, query) {

@@ -42,6 +42,7 @@ export const studentOpenApi = {
       parameters: [query("page", { type: "integer", minimum: 1 }), query("limit", { type: "integer", maximum: 100 }), query("subjectId", { type: "string", format: "uuid" }), query("search", { type: "string" }), query("from", { type: "string", format: "date-time" }), query("to", { type: "string", format: "date-time" })],
     }) },
     "/api/v1/student/study-materials/{materialId}": { get: protectedOperation("Get an enrolled study material", { parameters: [idParam("materialId")] }) },
+    "/api/v1/student/study-materials/{materialId}/download": { get: protectedOperation("Generate a temporary download URL for an enrolled study material", { parameters: [idParam("materialId")] }) },
     "/api/v1/student/notifications": { get: protectedOperation("Get the student's notifications", {
       parameters: [query("page", { type: "integer", minimum: 1 }), query("limit", { type: "integer", maximum: 100 }), query("unread", { type: "boolean" })],
     }) },
