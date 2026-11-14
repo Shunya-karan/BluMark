@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -5,10 +6,26 @@ import '../features/auth/presentation/providers/auth_provider.dart';
 import '../features/auth/presentation/screens/auth_screens.dart';
 import '../features/dashboard/dashboard_screen.dart';
 
+class RouterNotifier extends ChangeNotifier {
+  RouterNotifier(this._ref) {
+    _ref.listen<AuthState>(
+      authProvider,
+      (previous, next) => notifyListeners(),
+    );
+  }
+
+  final Ref _ref;
+}
+
+final routerNotifierProvider = Provider<RouterNotifier>((ref) {
+  return RouterNotifier(ref);
+});
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final auth = ref.watch(authProvider);
+  final notifier = ref.watch(routerNotifierProvider);
   return GoRouter(
     initialLocation: '/splash',
+    refreshListenable: notifier,
     routes: [
       GoRoute(
         path: '/splash',
@@ -42,6 +59,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
     redirect: (context, state) {
+      final auth = ref.read(authProvider);
       final path = state.matchedLocation;
       final isPublic = path == '/splash' ||
           path == '/role' ||
@@ -56,7 +74,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/splash';
       }
 
-      if (auth.status != AuthStatus.authenticated) {
+      if (auth.status == AuthStatus.unauthenticated ||
+          auth.status == AuthStatus.error) {
         if (path == '/splash') {
           return '/role';
         }
@@ -66,34 +85,42 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/role';
       }
 
-      final user = auth.user;
-      if (user == null) {
-        return '/role';
+      if (auth.status == AuthStatus.loading) {
+        return null;
       }
 
-      if (user.mustChangePassword) {
-        if (path == '/change-password') {
-          return null;
+      if (auth.status == AuthStatus.authenticated) {
+        final user = auth.user;
+        if (user == null) {
+          return '/role';
         }
-        return '/change-password';
-      }
 
-      final homePath = user.role == 'STUDENT'
-          ? '/student'
-          : user.role == 'TEACHER'
-              ? '/teacher'
-              : '/role';
+        if (user.mustChangePassword) {
+          if (path == '/change-password') {
+            return null;
+          }
+          return '/change-password';
+        }
 
-      if (path == '/splash' || isPublic || path == '/change-password') {
-        return homePath;
-      }
+        final homePath = user.role.toUpperCase() == 'STUDENT'
+            ? '/student'
+            : user.role.toUpperCase() == 'TEACHER'
+                ? '/teacher'
+                : '/role';
 
-      if (user.role == 'STUDENT' && path == '/teacher') {
-        return '/student';
-      }
+        if (path == '/splash' || isPublic || path == '/change-password') {
+          return homePath;
+        }
 
-      if (user.role == 'TEACHER' && path == '/student') {
-        return '/teacher';
+        if (user.role.toUpperCase() == 'STUDENT' && path == '/teacher') {
+          return '/student';
+        }
+
+        if (user.role.toUpperCase() == 'TEACHER' && path == '/student') {
+          return '/teacher';
+        }
+
+        return null;
       }
 
       return null;

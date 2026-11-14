@@ -74,16 +74,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                         filterQuality: FilterQuality.high,
                       ),
                       const SizedBox(height: 16),
-                      const Text(
-                        'Blu-Mark',
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
+                      // const Text(
+                      //   'Blu-Mark',
+                      //   style: TextStyle(
+                      //     color: AppColors.primary,
+                      //     fontSize: 32,
+                      //     fontWeight: FontWeight.w800,
+                      //     letterSpacing: -0.5,
+                      //   ),
+                      // ),
+                      // const SizedBox(height: 6),
                       const Text(
                         'Smart Attendance System',
                         style: TextStyle(

@@ -41,7 +41,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final accentColor = isRoleTeacher ? AppColors.teal : AppColors.primary;
 
     final isBusy = _isSubmitting || authState.status == AuthStatus.loading;
-    final isRedirecting = authState.redirecting;
 
     final errorMessage = _localErrorMessage ?? authState.message;
 
@@ -50,8 +49,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       extendBodyBehindAppBar: true,
       appBar: AuthHeader(
         onBack: isBusy ? null : () => context.go('/role'),
-        showLogo: true,
-        logoHeight: 60,
+        showLogo: false,
         isLoading: isBusy,
       ),
       body: Stack(
@@ -71,6 +69,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Center(
+                          child: Image.asset(
+                            'assets/images/logo2.png',
+                            height: 60,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.high,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
                         const Text(
                           'Welcome back',
                           style: TextStyle(
@@ -192,11 +199,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: 12),
-                                    Text(
-                                      isRedirecting
-                                          ? 'Redirecting to your dashboard...'
-                                          : 'Authenticating...',
-                                      style: const TextStyle(
+                                    const Text(
+                                      'Sign In',
+                                      style: TextStyle(
                                         color: AppColors.white,
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600,
@@ -205,7 +210,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   ],
                                 )
                               : const Text(
-                                  'Sign in',
+                                  'Sign In',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,

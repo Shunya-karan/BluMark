@@ -80,7 +80,6 @@ void main() {
       await tester.pumpWidget(const ProviderScope(child: BluMarkApp()));
       await tester.pump();
 
-      expect(find.text('Blu-Mark'), findsOneWidget);
       expect(find.text('Smart Attendance System'), findsOneWidget);
     });
   });

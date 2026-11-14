@@ -17,6 +17,6 @@ void main() {
     await tester.pump();
 
     // Verify that our counter has incremented.
-    expect(find.text('Blu-Mark'), findsOneWidget);
+    expect(find.text('Smart Attendance System'), findsOneWidget);
   });
 }

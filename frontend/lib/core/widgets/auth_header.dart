@@ -18,11 +18,12 @@ class AuthHeader extends StatelessWidget implements PreferredSizeWidget {
   final bool showLogo;
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => Size.fromHeight(showLogo ? 80.0 : kToolbarHeight);
 
   @override
   Widget build(BuildContext context) {
     return AppBar(
+      toolbarHeight: showLogo ? 80.0 : kToolbarHeight,
       backgroundColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,

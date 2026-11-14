@@ -34,8 +34,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       extendBodyBehindAppBar: true,
       appBar: AuthHeader(
         onBack: _isSending ? null : () => context.go('/role'),
-        showLogo: true,
-        logoHeight: 60,
+        showLogo: false,
         isLoading: _isSending,
       ),
       body: Stack(
@@ -55,6 +54,15 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Center(
+                          child: Image.asset(
+                            'assets/images/logo2.png',
+                            height: 60,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.high,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
                         const Text(
                           'Reset your password',
                           style: TextStyle(

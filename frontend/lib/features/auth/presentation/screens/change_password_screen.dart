@@ -62,8 +62,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
         onBack: isBusy ? null : _handleSignOut,
         backLabel: 'Sign out',
         isLoading: _isSigningOut,
-        showLogo: true,
-        logoHeight: 60,
+        showLogo: false,
       ),
       body: Stack(
         children: [
@@ -82,6 +81,15 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Center(
+                          child: Image.asset(
+                            'assets/images/logo2.png',
+                            height: 60,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.high,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
                         const Text(
                           'Create a New Password',
                           style: TextStyle(

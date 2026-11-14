@@ -30,7 +30,7 @@ class AuthUser {
       id: json['id'] as String? ?? '',
       fullName: json['fullName'] as String? ?? '',
       email: json['email'] as String? ?? '',
-      role: json['role'] as String? ?? '',
+      role: (json['role'] as String?)?.toUpperCase() ?? '',
       institutionId: json['institutionId'] as String? ?? '',
       institutionName: institution?['name'] as String?,
       mustChangePassword: json['mustChangePassword'] == true,
