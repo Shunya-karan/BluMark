@@ -4,6 +4,9 @@ import 'package:flutter/foundation.dart';
 class AppConfig {
   AppConfig._();
 
+  static const String _productionBaseUrl =
+      'https://blumark.onrender.com';
+
   static const String _override =
   String.fromEnvironment('API_BASE_URL');
 
@@ -13,6 +16,10 @@ class AppConfig {
   static String get apiBaseUrl {
     if (_override.isNotEmpty) {
       return _override;
+    }
+
+    if (kReleaseMode) {
+      return _productionBaseUrl;
     }
 
     if (kIsWeb) {
