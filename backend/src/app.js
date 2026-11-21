@@ -1,11 +1,9 @@
 import express from "express";
-import cors from "cors";
 import helmet from "helmet";
 import swaggerUi from "swagger-ui-express";
 import { checkDatabaseConnection } from "./repositories/database.repository.js";
 import openApi from "./config/swagger.js";
-import { getFrontendOrigins } from "./config/frontend.js";
-import AppError from "./utils/AppError.js";
+import { createCorsMiddleware } from "./config/cors.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import studentRoutes from "./modules/students/student.routes.js";
 import teacherRoutes from "./modules/teachers/teacher.routes.js";
@@ -19,24 +17,6 @@ import notFound from "./middleware/not-found.js";
 import errorHandler from "./middleware/error-handler.js";
 
 const app = express();
-const allowedOrigins = process.env.FRONTEND_URL ? getFrontendOrigins() : [];
-
-// Flutter Web assigns a dynamic localhost port during development. Keep this
-// convenience strictly local; production continues to require an explicit
-// HTTPS origin in FRONTEND_URL.
-function isLocalDevelopmentOrigin(origin) {
-  if (process.env.NODE_ENV === "production") return false;
-  try {
-    const url = new URL(origin);
-    return (
-      url.protocol === "http:" &&
-      (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
-      /^\d+$/.test(url.port)
-    );
-  } catch {
-    return false;
-  }
-}
 
 app.set("trust proxy", Number(process.env.TRUST_PROXY_HOPS || 0));
 app.use(helmet());
@@ -46,17 +26,7 @@ app.use((req, res, next) => {
   }
   next();
 });
-app.use(
-  cors({
-    credentials: true,
-    origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin) || isLocalDevelopmentOrigin(origin)) {
-        return callback(null, true);
-      }
-      return callback(new AppError("Origin is not allowed by CORS", 403));
-    },
-  }),
-);
+app.use(createCorsMiddleware());
 app.use("/api/docs", (_req, res, next) => {
   res.setHeader(
     "Content-Security-Policy",
