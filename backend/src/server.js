@@ -3,10 +3,8 @@ import app from "./app.js";
 import { disconnectDatabase } from "./repositories/database.repository.js";
 import { assertJwtConfig } from "./config/jwt.js";
 import { assertEmailConfigured } from "./config/email.js";
-import { getFrontendOrigins } from "./config/frontend.js";
 
 if (!process.env.DATABASE_URL) throw new Error("Missing DATABASE_URL.");
-getFrontendOrigins();
 assertJwtConfig();
 if (process.env.NODE_ENV === "production") {
   assertEmailConfigured();
