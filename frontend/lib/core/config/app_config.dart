@@ -14,12 +14,12 @@ class AppConfig {
   bool.fromEnvironment('USE_PHYSICAL_DEVICE');
 
   static String get apiBaseUrl {
-    if (_override.isNotEmpty) {
-      return _override;
-    }
-
     if (kReleaseMode) {
       return _productionBaseUrl;
+    }
+
+    if (_override.isNotEmpty) {
+      return _override;
     }
 
     if (kIsWeb) {
