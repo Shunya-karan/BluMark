@@ -696,8 +696,8 @@ export async function createAttendanceSession(user, data) {
     }
   }
 
-  // 3. Generate secure session credentials.
-  const sessionCode = randomBytes(9).toString("base64url");
+  // 3. Generate the visible session code used by both BLE peers.
+  // The database UUID remains the internal, collision-free identity.
   const bleTokenSeed = randomBytes(32).toString("hex");
 
   // 4. Calculate session expiry.
@@ -707,17 +707,36 @@ export async function createAttendanceSession(user, data) {
     startsAt.getTime() + durationMinutes * 60 * 1000,
   );
 
+  const dayOfYear = Math.floor(
+    (Date.UTC(startsAt.getUTCFullYear(), startsAt.getUTCMonth(), startsAt.getUTCDate()) -
+      Date.UTC(startsAt.getUTCFullYear(), 0, 1)) / 86400000,
+  ) + 1;
+  const endMinutes = expiresAt.getUTCMinutes();
+  const endSeconds = expiresAt.getUTCSeconds();
+  const endTime = `${String(endMinutes).padStart(2, "0")}${String(endSeconds).padStart(2, "0")}`;
+  const classCode = assignment.schoolClass.name.replace(/\s+/g, "").toUpperCase();
+  const subjectCode = assignment.subject.code.replace(/\s+/g, "").toUpperCase();
+  const sessionCode = `${classCode}-${subjectCode}-${dayOfYear}-${endTime}`;
+
   // 5. Create session with concurrency protection.
-  const result = await repository.createTeacherAttendanceSession({
-    teacherId,
-    institutionId,
-    classSubjectId,
-    timetableSlotId: timetableSlotId ?? null,
-    sessionCode,
-    bleTokenSeed,
-    startsAt,
-    expiresAt,
-  });
+  let result;
+  try {
+    result = await repository.createTeacherAttendanceSession({
+      teacherId,
+      institutionId,
+      classSubjectId,
+      timetableSlotId: timetableSlotId ?? null,
+      sessionCode,
+      bleTokenSeed,
+      startsAt,
+      expiresAt,
+    });
+  } catch (error) {
+    if (error?.code === "P2002") {
+      throw new AppError("This visible session code already exists. Retry with a different duration or wait for the active session to end.", 409);
+    }
+    throw error;
+  }
 
   if (result.conflict) {
     throw new AppError(

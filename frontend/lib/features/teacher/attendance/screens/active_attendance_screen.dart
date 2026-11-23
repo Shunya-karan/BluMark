@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/ble/ble_attendance_channel.dart';
 import '../../providers/teacher_providers.dart';
 
 class ActiveAttendanceScreen extends ConsumerStatefulWidget {
@@ -14,13 +16,158 @@ class ActiveAttendanceScreen extends ConsumerStatefulWidget {
 
 class _ActiveAttendanceScreenState
     extends ConsumerState<ActiveAttendanceScreen> {
-  final Map<String, String> _localSelections = {}; // studentId -> status ('PRESENT'/'ABSENT')
+  final Map<String, String> _localSelections =
+      {}; // studentId -> status ('PRESENT'/'ABSENT')
   final Map<String, String> _existingRecordIds = {}; // studentId -> recordId
   String _searchQuery = '';
   String? _statusFilter;
   bool _isSaving = false;
   bool _isEnding = false;
   bool _hasLoadedInitial = false;
+  bool _bleStarting = false;
+  bool _bleStarted = false;
+  DateTime? _sessionExpiresAt;
+  StreamSubscription<BleAttendanceEvent>? _bleSubscription;
+  Timer? _bleExpiryTimer;
+  String _bleState = 'Starting BLE…';
+  int _bleMarkedCount = 0;
+
+  @override
+  void dispose() {
+    _bleExpiryTimer?.cancel();
+    _bleSubscription?.cancel();
+    if (_bleStarted) {
+      unawaited(BleAttendanceChannel.instance.stopTeacherSession());
+    }
+    super.dispose();
+  }
+
+  Future<void> _startBle(
+    Map<String, dynamic> session,
+    List<dynamic> roster,
+  ) async {
+    final code = session['sessionCode'] as String?;
+    final extra = GoRouterState.of(context).extra;
+    final enableBle = !(extra is Map && extra['enableBle'] == false);
+    if (!enableBle) {
+      if (_bleState != 'Teacher controls only') {
+        setState(() => _bleState = 'Teacher controls only');
+      }
+      return;
+    }
+    if (code == null || code.isEmpty || _bleStarting || _bleStarted) return;
+
+    final expiryValue = session['expiresAt']?.toString();
+    final expiry = expiryValue == null
+        ? null
+        : DateTime.tryParse(expiryValue)?.toLocal();
+    if (expiry != null && !expiry.isAfter(DateTime.now())) {
+      setState(() => _bleState = 'Session expired — Bluetooth is stopped');
+      await _bleSubscription?.cancel();
+      _bleSubscription = null;
+      return;
+    }
+    _sessionExpiresAt = expiry;
+
+    _bleStarting = true;
+    try {
+      final permitted = await BleAttendanceChannel.instance
+          .requestPermissions();
+      if (!mounted) return;
+      if (!permitted) {
+        setState(() => _bleState = 'Bluetooth permission is required');
+        return;
+      }
+      _bleSubscription ??= BleAttendanceChannel.instance.events.listen((event) {
+        if (!mounted) return;
+        if (event.type == 'status') {
+          setState(() => _bleState = event.data['state'] as String? ?? 'Ready');
+          return;
+        }
+        if (event.type != 'attendanceAttempt' ||
+            event.data['sessionCode'] != code ||
+            (_sessionExpiresAt != null &&
+                !_sessionExpiresAt!.isAfter(DateTime.now()))) {
+          return;
+        }
+        final seat = event.data['seatNumber']?.toString();
+        Map? matchedStudent;
+        for (final item in roster) {
+          if (item is! Map) continue;
+          final student = item['student'];
+          if (student is Map && student['studentNumber']?.toString() == seat) {
+            matchedStudent = student;
+            break;
+          }
+        }
+        final studentId = matchedStudent?['id']?.toString();
+        if (studentId == null || studentId.isEmpty) {
+          setState(
+            () => _bleState = 'Request rejected: seat is not in this class',
+          );
+          return;
+        }
+        if (_localSelections[studentId] == 'PRESENT') return;
+        setState(() {
+          _localSelections[studentId] = 'PRESENT';
+          _bleMarkedCount++;
+          _bleState = 'Attendance received — ready to save';
+        });
+      });
+
+      if (expiry != null && !expiry.isAfter(DateTime.now())) {
+        setState(() => _bleState = 'Session expired — Bluetooth is stopped');
+        return;
+      }
+      await BleAttendanceChannel.instance.startTeacherSession(code);
+      _bleStarted = true;
+      if (!mounted) {
+        unawaited(BleAttendanceChannel.instance.stopTeacherSession());
+        return;
+      }
+      setState(() => _bleState = 'Advertising and accepting attendance');
+      if (expiry != null) {
+        _bleExpiryTimer = Timer(
+          expiry.difference(DateTime.now()),
+          _stopBleAtExpiry,
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _bleState = 'Bluetooth unavailable: $error');
+      }
+      await _bleSubscription?.cancel();
+      _bleSubscription = null;
+    } finally {
+      _bleStarting = false;
+    }
+  }
+
+  Future<void> _stopBleAtExpiry() async {
+    try {
+      if (_bleStarted) {
+        await BleAttendanceChannel.instance.stopTeacherSession();
+        _bleStarted = false;
+      }
+      if (mounted) {
+        setState(() => _bleState = 'Session expired — Bluetooth is stopped');
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _bleState = 'Session expired; Bluetooth stop failed: $error',
+        );
+      }
+    }
+  }
+
+  String _formatSessionTime(Object? value) {
+    final date = DateTime.tryParse(value?.toString() ?? '')?.toLocal();
+    if (date == null) return '—';
+    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final suffix = date.hour < 12 ? 'AM' : 'PM';
+    return '${date.day}/${date.month} · $hour:${date.minute.toString().padLeft(2, '0')} $suffix';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +179,7 @@ class _ActiveAttendanceScreenState
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
-          'Manual Attendance',
+          'Active Attendance',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
         actions: [
@@ -85,9 +232,15 @@ class _ActiveAttendanceScreenState
             final subjectName = subject?['name'] as String? ?? 'Subject';
             final className = schoolClass?['name'] as String? ?? 'Class';
             final division = schoolClass?['division'] as String? ?? '';
-            final fullClassName =
-                division.isNotEmpty ? '$className ($division)' : className;
+            final fullClassName = division.isNotEmpty
+                ? '$className ($division)'
+                : className;
             final sessionStatus = session['status'] as String? ?? 'ACTIVE';
+            if (sessionStatus == 'ACTIVE') {
+              WidgetsBinding.instance.addPostFrameCallback(
+                (_) => _startBle(session, roster),
+              );
+            }
 
             // Calculate live counters
             final totalStudents = roster.length;
@@ -106,17 +259,19 @@ class _ActiveAttendanceScreenState
             final filteredRoster = roster.where((item) {
               final student = item['student'] as Map?;
               final studentId = student?['id'] as String? ?? '';
-              final name =
-                  (student?['fullName'] as String? ?? '').toLowerCase();
-              final studentNo =
-                  (student?['studentNumber'] as String? ?? '').toLowerCase();
+              final name = (student?['fullName'] as String? ?? '')
+                  .toLowerCase();
+              final studentNo = (student?['studentNumber'] as String? ?? '')
+                  .toLowerCase();
               final currentStatus = _localSelections[studentId] ?? 'UNMARKED';
 
-              final matchesSearch = _searchQuery.isEmpty ||
+              final matchesSearch =
+                  _searchQuery.isEmpty ||
                   name.contains(_searchQuery.toLowerCase()) ||
                   studentNo.contains(_searchQuery.toLowerCase());
 
-              final matchesFilter = _statusFilter == null ||
+              final matchesFilter =
+                  _statusFilter == null ||
                   currentStatus == _statusFilter!.toUpperCase();
 
               return matchesSearch && matchesFilter;
@@ -148,14 +303,17 @@ class _ActiveAttendanceScreenState
                                     child: Text(
                                       '$fullClassName • $subjectName',
                                       style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 17,
-                                          color: AppColors.textPrimary),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 17,
+                                        color: AppColors.textPrimary,
+                                      ),
                                     ),
                                   ),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 4),
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: sessionStatus == 'ACTIVE'
                                           ? AppColors.lightTeal
@@ -177,20 +335,86 @@ class _ActiveAttendanceScreenState
                               ),
                               const Divider(height: 24),
                               Row(
+                                children: [
+                                  Expanded(
+                                    child: _SessionDetail(
+                                      label: 'Started',
+                                      value: _formatSessionTime(
+                                        session['startsAt'],
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _SessionDetail(
+                                      label: 'Ends',
+                                      value: _formatSessionTime(
+                                        session['expiresAt'],
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _SessionDetail(
+                                      label: 'Session code',
+                                      value:
+                                          session['sessionCode']?.toString() ??
+                                          '—',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Divider(height: 24),
+                              Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceAround,
                                 children: [
                                   _SummaryStat(
-                                      'Total', totalStudents, AppColors.textPrimary),
+                                    'Total',
+                                    totalStudents,
+                                    AppColors.textPrimary,
+                                  ),
                                   _SummaryStat(
-                                      'Present', presentCount, AppColors.success),
+                                    'Present',
+                                    presentCount,
+                                    AppColors.success,
+                                  ),
                                   _SummaryStat(
-                                      'Absent', absentCount, AppColors.error),
-                                  _SummaryStat('Unmarked', unmarkedCount,
-                                      AppColors.textMuted),
+                                    'Absent',
+                                    absentCount,
+                                    AppColors.error,
+                                  ),
+                                  _SummaryStat(
+                                    'Unmarked',
+                                    unmarkedCount,
+                                    AppColors.textMuted,
+                                  ),
                                 ],
                               ),
                             ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Card(
+                        color: AppColors.lightBlue,
+                        elevation: 0,
+                        child: ListTile(
+                          leading: const Icon(
+                            Icons.bluetooth_connected,
+                            color: AppColors.primary,
+                          ),
+                          title: const Text(
+                            'BLE attendance',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text(
+                            '$_bleState${_bleMarkedCount > 0 ? ' • $_bleMarkedCount received' : ''}',
+                          ),
+                          trailing: Text(
+                            session['sessionCode']?.toString() ?? '—',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                            ),
                           ),
                         ),
                       ),
@@ -205,15 +429,22 @@ class _ActiveAttendanceScreenState
                               style: OutlinedButton.styleFrom(
                                 side: const BorderSide(color: AppColors.teal),
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10)),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
-                              icon: const Icon(Icons.done_all_rounded,
-                                  size: 18, color: AppColors.teal),
-                              label: const Text('Mark All Present',
-                                  style: TextStyle(
-                                      color: AppColors.teal,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12)),
+                              icon: const Icon(
+                                Icons.done_all_rounded,
+                                size: 18,
+                                color: AppColors.teal,
+                              ),
+                              label: const Text(
+                                'Mark All Present',
+                                style: TextStyle(
+                                  color: AppColors.teal,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -221,17 +452,26 @@ class _ActiveAttendanceScreenState
                             child: OutlinedButton.icon(
                               onPressed: _confirmClearAll,
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: AppColors.textMuted),
+                                side: const BorderSide(
+                                  color: AppColors.textMuted,
+                                ),
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10)),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
-                              icon: const Icon(Icons.restart_alt_rounded,
-                                  size: 18, color: AppColors.textMuted),
-                              label: const Text('Clear All',
-                                  style: TextStyle(
-                                      color: AppColors.textMuted,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12)),
+                              icon: const Icon(
+                                Icons.restart_alt_rounded,
+                                size: 18,
+                                color: AppColors.textMuted,
+                              ),
+                              label: const Text(
+                                'Clear All',
+                                style: TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -244,8 +484,9 @@ class _ActiveAttendanceScreenState
                         decoration: InputDecoration(
                           hintText: 'Search student name or ID...',
                           prefixIcon: const Icon(Icons.search_rounded),
-                          contentPadding:
-                              const EdgeInsets.symmetric(horizontal: 16),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -290,8 +531,10 @@ class _ActiveAttendanceScreenState
                         const Padding(
                           padding: EdgeInsets.all(32),
                           child: Center(
-                            child: Text('No students match current filter.',
-                                style: TextStyle(color: AppColors.textSecondary)),
+                            child: Text(
+                              'No students match current filter.',
+                              style: TextStyle(color: AppColors.textSecondary),
+                            ),
                           ),
                         )
                       else
@@ -317,8 +560,8 @@ class _ActiveAttendanceScreenState
                                 color: currentSel == 'PRESENT'
                                     ? AppColors.teal
                                     : currentSel == 'ABSENT'
-                                        ? AppColors.error
-                                        : AppColors.border,
+                                    ? AppColors.error
+                                    : AppColors.border,
                                 width: currentSel != null ? 1.5 : 1.0,
                               ),
                             ),
@@ -331,16 +574,16 @@ class _ActiveAttendanceScreenState
                                     backgroundColor: currentSel == 'PRESENT'
                                         ? AppColors.lightTeal
                                         : currentSel == 'ABSENT'
-                                            ? Colors.red.shade50
-                                            : AppColors.secondarySurface,
+                                        ? Colors.red.shade50
+                                        : AppColors.secondarySurface,
                                     child: Text(
                                       initial,
                                       style: TextStyle(
                                         color: currentSel == 'PRESENT'
                                             ? AppColors.teal
                                             : currentSel == 'ABSENT'
-                                                ? AppColors.error
-                                                : AppColors.textPrimary,
+                                            ? AppColors.error
+                                            : AppColors.textPrimary,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -354,16 +597,18 @@ class _ActiveAttendanceScreenState
                                         Text(
                                           fullName,
                                           style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 15,
-                                              color: AppColors.textPrimary),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                            color: AppColors.textPrimary,
+                                          ),
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          'ID: $studentNo',
+                                          'Seat: $studentNo',
                                           style: const TextStyle(
-                                              fontSize: 12,
-                                              color: AppColors.textSecondary),
+                                            fontSize: 12,
+                                            color: AppColors.textSecondary,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -426,25 +671,32 @@ class _ActiveAttendanceScreenState
                       if (sessionStatus == 'ACTIVE') ...[
                         Expanded(
                           child: OutlinedButton(
-                            onPressed:
-                                (_isSaving || _isEnding) ? null : () => _endSession(sessionId),
+                            onPressed: (_isSaving || _isEnding)
+                                ? null
+                                : () => _endSession(sessionId),
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: AppColors.error),
                               minimumSize: const Size(double.infinity, 50),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                             child: _isEnding
                                 ? const SizedBox(
                                     height: 18,
                                     width: 18,
                                     child: CircularProgressIndicator(
-                                        strokeWidth: 2, color: AppColors.error),
+                                      strokeWidth: 2,
+                                      color: AppColors.error,
+                                    ),
                                   )
-                                : const Text('End Session',
+                                : const Text(
+                                    'End Session',
                                     style: TextStyle(
-                                        color: AppColors.error,
-                                        fontWeight: FontWeight.bold)),
+                                      color: AppColors.error,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -460,7 +712,8 @@ class _ActiveAttendanceScreenState
                             foregroundColor: Colors.white,
                             minimumSize: const Size(double.infinity, 50),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           child: _isSaving
                               ? const Row(
@@ -470,19 +723,26 @@ class _ActiveAttendanceScreenState
                                       height: 18,
                                       width: 18,
                                       child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2),
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
                                     ),
                                     SizedBox(width: 10),
-                                    Text('Saving...',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold)),
+                                    Text(
+                                      'Saving...',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ],
                                 )
-                              : const Text('Save Attendance',
+                              : const Text(
+                                  'Save Attendance',
                                   style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold)),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                         ),
                       ),
                     ],
@@ -492,10 +752,13 @@ class _ActiveAttendanceScreenState
             );
           },
           loading: () => const Center(
-              child: CircularProgressIndicator(color: AppColors.primary)),
+            child: CircularProgressIndicator(color: AppColors.primary),
+          ),
           error: (error, _) => Center(
-            child: Text('Error loading live session: $error',
-                style: const TextStyle(color: AppColors.error)),
+            child: Text(
+              'Error loading live session: $error',
+              style: const TextStyle(color: AppColors.error),
+            ),
           ),
         ),
       ),
@@ -508,7 +771,8 @@ class _ActiveAttendanceScreenState
       builder: (ctx) => AlertDialog(
         title: const Text('Mark All Present'),
         content: const Text(
-            'Are you sure you want to mark all students in this roster as Present?'),
+          'Are you sure you want to mark all students in this roster as Present?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
@@ -540,7 +804,8 @@ class _ActiveAttendanceScreenState
       builder: (ctx) => AlertDialog(
         title: const Text('Clear Selections'),
         content: const Text(
-            'Reset all student attendance selections to Unmarked?'),
+          'Reset all student attendance selections to Unmarked?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
@@ -580,25 +845,36 @@ class _ActiveAttendanceScreenState
       _localSelections.forEach((studentId, status) {
         final existingRecordId = _existingRecordIds[studentId];
         if (existingRecordId != null) {
-          updateRecords.add({
-            'recordId': existingRecordId,
-            'status': status,
-          });
+          updateRecords.add({'recordId': existingRecordId, 'status': status});
         } else {
-          newRecords.add({
-            'studentId': studentId,
-            'status': status,
-          });
+          newRecords.add({'studentId': studentId, 'status': status});
         }
       });
 
       if (newRecords.isNotEmpty) {
-        await repository.bulkMarkAttendance(
-            sessionId: sessionId, records: newRecords);
+        final result = await repository.bulkMarkAttendance(
+          sessionId: sessionId,
+          records: newRecords,
+        );
+        final created = result['records'];
+        if (created is List) {
+          for (final record in created.whereType<Map>()) {
+            final student = record['student'];
+            final studentId = student is Map
+                ? student['id']?.toString()
+                : record['studentId']?.toString();
+            final recordId = record['id']?.toString();
+            if (studentId != null && recordId != null) {
+              _existingRecordIds[studentId] = recordId;
+            }
+          }
+        }
       }
       if (updateRecords.isNotEmpty) {
         await repository.bulkUpdateAttendance(
-            sessionId: sessionId, records: updateRecords);
+          sessionId: sessionId,
+          records: updateRecords,
+        );
       }
 
       // Refresh providers
@@ -631,6 +907,23 @@ class _ActiveAttendanceScreenState
     try {
       final repository = ref.read(teacherRepositoryProvider);
       await repository.endAttendanceSession(sessionId);
+      _bleExpiryTimer?.cancel();
+      String? bleStopError;
+      if (_bleStarted) {
+        try {
+          await BleAttendanceChannel.instance.stopTeacherSession();
+          _bleStarted = false;
+        } catch (error) {
+          bleStopError = error.toString();
+        }
+      }
+      if (mounted) {
+        setState(
+          () => _bleState = bleStopError == null
+              ? 'Session ended — Bluetooth is stopped'
+              : 'Session ended, but Bluetooth could not be stopped: $bleStopError',
+        );
+      }
 
       ref.invalidate(teacherSessionRosterProvider(sessionId));
       ref.invalidate(teacherAttendanceHistoryProvider);
@@ -638,7 +931,14 @@ class _ActiveAttendanceScreenState
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Session ended successfully')),
+          SnackBar(
+            content: Text(
+              bleStopError == null
+                  ? 'Session ended successfully'
+                  : 'Session ended, but BLE stop failed: $bleStopError',
+            ),
+            backgroundColor: bleStopError == null ? null : AppColors.error,
+          ),
         );
       }
     } catch (e) {
@@ -666,16 +966,51 @@ class _SummaryStat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text('$count',
-            style: TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 18, color: color)),
+        Text(
+          '$count',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: color,
+          ),
+        ),
         const SizedBox(height: 2),
-        Text(label,
-            style:
-                const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+        ),
       ],
     );
   }
+}
+
+class _SessionDetail extends StatelessWidget {
+  const _SessionDetail({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+      ),
+      const SizedBox(height: 3),
+      Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: AppColors.textPrimary,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    ],
+  );
 }
 
 class _FilterChip extends StatelessWidget {

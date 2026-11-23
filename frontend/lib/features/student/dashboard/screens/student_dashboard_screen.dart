@@ -51,7 +51,7 @@ class StudentDashboardScreen extends ConsumerWidget {
               StudentSectionTitle(
                 title: 'Today & upcoming',
                 action: 'Full timetable',
-                onTap: () => onTab(2),
+                onTap: () => onTab(3),
               ),
               if (upcoming.isEmpty)
                 const StudentEmptyCard(

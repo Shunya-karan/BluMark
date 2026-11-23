@@ -20,13 +20,13 @@ class QuickActions extends StatelessWidget {
         icon: Icons.calendar_month_rounded,
         label: 'Timetable',
         color: AppColors.teal,
-        onTap: () => onTab(2),
+        onTap: () => onTab(3),
       ),
       _Action(
         icon: Icons.folder_rounded,
         label: 'Materials',
         color: AppColors.cyan,
-        onTap: () => onTab(3),
+        onTap: () => context.push('/student/materials'),
       ),
       _Action(
         icon: Icons.menu_book_rounded,
