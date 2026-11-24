@@ -9,7 +9,7 @@ const validate =
           "Request validation failed",
           400,
           r.error.issues.map(({ path, message }) => ({
-            field: path.join("."),
+            field: path.length > 0 ? path.join(".") : source,
             message,
           })),
         ),

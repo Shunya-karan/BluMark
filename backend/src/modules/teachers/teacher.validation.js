@@ -156,7 +156,7 @@ export const createAttendanceSessionSchema = z.object({
     .min(1, "Session duration must be at least 1 minute")
     .max(240, "Session duration cannot exceed 240 minutes")
     .default(60),
-});
+}).strict();
 
 export const sessionIdParamSchema = z.object({
   sessionId: z
@@ -182,12 +182,12 @@ export const manualAttendanceSchema = z.object({
   studentId: z.string().uuid("Invalid student ID"),
   status: attendanceStatusSchema,
   notes: z.string().trim().max(500, "Notes cannot exceed 500 characters").nullable().optional(),
-});
+}).strict();
 
 export const correctAttendanceSchema = z.object({
   status: attendanceStatusSchema,
   notes: z.string().trim().max(500, "Notes cannot exceed 500 characters").nullable().optional(),
-});
+}).strict();
 
 // BULK ATTENDANCE VALIDATION
 
@@ -205,7 +205,7 @@ export const bulkManualAttendanceSchema = z.object({
         studentId: z.string().uuid("Invalid student ID"),
         status: bulkAttendanceStatusSchema,
         notes: z.string().trim().max(500).nullable().optional(),
-      }),
+      }).strict(),
     )
     .min(1, "At least one student is required")
     .max(500, "Maximum 500 students can be processed at once")
@@ -216,7 +216,7 @@ export const bulkManualAttendanceSchema = z.object({
         ctx.addIssue({
           code: "custom",
           message: "Duplicate student IDs are not allowed",
-        });
+        }).strict();
       }
     }),
 });
@@ -228,7 +228,7 @@ export const bulkUpdateAttendanceSchema = z.object({
         recordId: z.string().uuid("Invalid attendance record ID"),
         status: bulkAttendanceStatusSchema,
         notes: z.string().trim().max(500).nullable().optional(),
-      }),
+      }).strict(),
     )
     .min(1, "At least one attendance record is required")
     .max(500, "Maximum 500 records can be updated at once")
@@ -239,7 +239,7 @@ export const bulkUpdateAttendanceSchema = z.object({
         ctx.addIssue({
           code: "custom",
           message: "Duplicate attendance record IDs are not allowed",
-        });
+        }).strict();
       }
     }),
 });

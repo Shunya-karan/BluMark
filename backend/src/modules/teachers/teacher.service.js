@@ -714,11 +714,11 @@ export async function createAttendanceSession(user, data) {
   const endMinutes = expiresAt.getUTCMinutes();
   const endSeconds = expiresAt.getUTCSeconds();
   const endTime = `${String(endMinutes).padStart(2, "0")}${String(endSeconds).padStart(2, "0")}`;
-  const classCode = assignment.schoolClass.name.replace(/\s+/g, "").toUpperCase();
+  const classCode = assignment.schoolClass.code.replace(/\s+/g, "").toUpperCase();
   const subjectCode = assignment.subject.code.replace(/\s+/g, "").toUpperCase();
   const sessionCode = `${classCode}-${subjectCode}-${dayOfYear}-${endTime}`;
 
-  // 5. Create session with concurrency protection.
+  // 5. Create session with  concurrency protection.
   let result;
   try {
     result = await repository.createTeacherAttendanceSession({
@@ -736,6 +736,20 @@ export async function createAttendanceSession(user, data) {
       throw new AppError("This visible session code already exists. Retry with a different duration or wait for the active session to end.", 409);
     }
     throw error;
+  }
+
+  if (result.assignmentNotFound) {
+    throw new AppError(
+      "Subject not found or you are not assigned to teach it",
+      404,
+    );
+  }
+
+  if (result.timetableSlotNotFound) {
+    throw new AppError(
+      "Timetable slot not found or does not belong to this subject",
+      404,
+    );
   }
 
   if (result.conflict) {
@@ -776,7 +790,11 @@ export async function endAttendanceSession(user, sessionId) {
   }
 
   return {
-    message: "Attendance session ended successfully",
+    message: result.session.status === "EXPIRED"
+      ? "Attendance session has expired"
+      : result.session.status === "COMPLETED"
+        ? "Attendance session ended successfully"
+        : `Attendance session is ${result.session.status.toLowerCase()}`,
     session: result.session,
   };
 }
@@ -840,7 +858,7 @@ export async function manuallyMarkStudentAttendance(user, sessionId, data) {
     );
   }
 
-  if (result.alreadyMarked) {
+  if (result.alreadyMarked && !result.record) {
     throw new AppError(
       "Attendance has already been marked for this student. Use the correction endpoint instead.",
       409,

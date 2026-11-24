@@ -18,6 +18,21 @@ const sessionInclude = {
   timetableSlot: { select: { id: true, startTime: true, endTime: true, room: true, weekday: true } },
 };
 
+async function expireOverdueSessions(institutionId) {
+  const now = new Date();
+  await prisma.attendanceSession.updateMany({
+    where: {
+      institutionId,
+      status: "ACTIVE",
+      expiresAt: { lte: now },
+    },
+    data: {
+      status: "EXPIRED",
+      endedAt: now,
+    },
+  });
+}
+
 export function findStudentProfile(profileId, institutionId) {
   return prisma.profile.findFirst({
     where: { id: profileId, institutionId, role: "STUDENT", isActive: true },
@@ -48,11 +63,12 @@ export function findActiveEnrollments(studentId, institutionId) {
   });
 }
 
-export function findEligibleSessions({ institutionId, studentId, classIds, enrolledAfter, filters = {}, skip, take }) {
+export async function findEligibleSessions({ institutionId, studentId, classIds, enrolledAfter, filters = {}, skip, take }) {
   const startsAt = {};
   if (enrolledAfter) startsAt.gte = enrolledAfter;
   if (filters.from) startsAt.gte = new Date(filters.from);
   if (filters.to) startsAt.lte = new Date(filters.to);
+  await expireOverdueSessions(institutionId);
   return prisma.attendanceSession.findMany({
     where: {
       institutionId,
@@ -75,11 +91,12 @@ export function findEligibleSessions({ institutionId, studentId, classIds, enrol
   });
 }
 
-export function countEligibleSessions({ institutionId, classIds, enrolledAfter, filters = {} }) {
+export async function countEligibleSessions({ institutionId, classIds, enrolledAfter, filters = {} }) {
   const startsAt = {};
   if (enrolledAfter) startsAt.gte = enrolledAfter;
   if (filters.from) startsAt.gte = new Date(filters.from);
   if (filters.to) startsAt.lte = new Date(filters.to);
+  await expireOverdueSessions(institutionId);
   return prisma.attendanceSession.count({
     where: {
       institutionId,

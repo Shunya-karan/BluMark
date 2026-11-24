@@ -187,6 +187,7 @@ model SchoolClass {
   institutionId String         @map("institution_id") @db.Uuid
   departmentId  String?        @map("department_id") @db.Uuid
   name          String
+  code          String         @db.VarChar(5)
   division      String?
   academicYear  String         @map("academic_year")
   semester      Int?
@@ -199,7 +200,7 @@ model SchoolClass {
   enrollments   Enrollment[]
 
   @@unique([id, institutionId])
-  @@unique([institutionId, name, division, academicYear, semester])
+  @@unique([institutionId, code, academicYear, division])
   @@index([institutionId, academicYear, isActive])
   @@map("classes")
 }
