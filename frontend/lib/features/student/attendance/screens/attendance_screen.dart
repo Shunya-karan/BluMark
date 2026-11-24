@@ -7,7 +7,9 @@ import '../widgets/attendance_overview_card.dart';
 import '../widgets/attendance_filter_bar.dart';
 
 class AttendanceScreen extends ConsumerWidget {
-  const AttendanceScreen({super.key});
+  const AttendanceScreen({super.key, required this.onNavigateToNearby});
+  final VoidCallback onNavigateToNearby;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) => StudentAsyncPage(
     value: ref.watch(filteredAttendanceHistoryProvider),
@@ -18,6 +20,13 @@ class AttendanceScreen extends ConsumerWidget {
     },
     builder: (history) => StudentPage(
       title: 'Attendance',
+      actions: [
+        IconButton(
+          onPressed: onNavigateToNearby,
+          icon: const Icon(Icons.bluetooth_searching),
+          tooltip: 'Nearby sessions',
+        ),
+      ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -34,7 +43,6 @@ class AttendanceScreen extends ConsumerWidget {
                 error: (error, stackTrace) =>
                     const Text('Attendance summary is unavailable.'),
               ),
-          const SizedBox(height: 24),
           ref
               .watch(attendanceSummaryProvider)
               .maybeWhen(

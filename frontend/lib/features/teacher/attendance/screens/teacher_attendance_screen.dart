@@ -12,7 +12,10 @@ class TeacherAttendanceScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Attendance', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text(
+          'Attendance',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(24),
@@ -20,7 +23,7 @@ class TeacherAttendanceScreen extends ConsumerWidget {
           _buildActionCard(
             context: context,
             title: 'Create Session',
-            subtitle: 'Start a new teacher-controlled manual attendance session',
+            subtitle: 'Choose a class, set a duration, and start attendance',
             icon: Icons.add_task_rounded,
             color: AppColors.primary,
             onTap: () => context.push('/teacher/attendance/create'),
@@ -93,7 +96,10 @@ class TeacherAttendanceScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textSecondary,
+              ),
             ],
           ),
         ),

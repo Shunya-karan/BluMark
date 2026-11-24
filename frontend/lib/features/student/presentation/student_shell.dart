@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../attendance/screens/attendance_screen.dart';
 import '../dashboard/screens/student_dashboard_screen.dart';
 import '../profile/screens/student_profile_screen.dart';
-import '../study_materials/screens/study_materials_screen.dart';
+import '../attendance/screens/student_nearby_sessions_screen.dart';
 import '../timetable/screens/timetable_screen.dart';
 import 'widgets/student_bottom_navigation.dart';
 
@@ -21,9 +21,9 @@ class _StudentShellState extends State<StudentShell> {
       index: _index,
       children: [
         StudentDashboardScreen(onTab: _select),
-        const AttendanceScreen(),
+        AttendanceScreen(onNavigateToNearby: () => _select(2)),
+        const StudentNearbySessionsScreen(embedded: true),
         const TimetableScreen(),
-        const StudyMaterialsScreen(),
         const StudentProfileScreen(),
       ],
     ),

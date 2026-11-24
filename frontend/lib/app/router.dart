@@ -24,6 +24,8 @@ import '../features/student/notifications/screens/notifications_screen.dart';
 import '../features/student/presentation/student_shell.dart';
 import '../features/student/subjects/screens/subjects_screen.dart';
 import '../features/student/profile/screens/edit_student_profile_screen.dart';
+import '../features/student/attendance/screens/student_nearby_sessions_screen.dart';
+import '../features/student/study_materials/screens/study_materials_screen.dart';
 
 class RouterNotifier extends ChangeNotifier {
   RouterNotifier(this._ref) {
@@ -79,12 +81,20 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const SubjectsScreen(),
           ),
           GoRoute(
+            path: 'materials',
+            builder: (context, state) => const StudyMaterialsScreen(),
+          ),
+          GoRoute(
             path: 'notifications',
             builder: (context, state) => const NotificationsScreen(),
           ),
           GoRoute(
             path: 'device',
             builder: (context, state) => const DeviceInformationScreen(),
+          ),
+          GoRoute(
+            path: 'attendance/nearby',
+            builder: (context, state) => const StudentNearbySessionsScreen(),
           ),
         ],
       ),
@@ -116,7 +126,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: 'create',
-                builder: (context, state) => const CreateAttendanceSessionScreen(),
+                builder: (context, state) =>
+                    const CreateAttendanceSessionScreen(),
               ),
               GoRoute(
                 path: 'active/:sessionId',
@@ -128,13 +139,15 @@ final routerProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: 'sessions/:sessionId',
-                    builder: (context, state) => const AttendanceSessionDetailsScreen(),
+                    builder: (context, state) =>
+                        const AttendanceSessionDetailsScreen(),
                   ),
                 ],
               ),
               GoRoute(
                 path: 'sessions/:sessionId',
-                builder: (context, state) => const AttendanceSessionDetailsScreen(),
+                builder: (context, state) =>
+                    const AttendanceSessionDetailsScreen(),
               ),
             ],
           ),

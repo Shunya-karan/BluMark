@@ -23,13 +23,17 @@ class AppConfig {
     }
 
     if (kIsWeb) {
-      return 'http://localhost:5000';
+      return 'https://blumark.onrender.com';
+      // return 'http://localhost:5000';
     }
 
     if (_usePhysicalDevice) {
-      return 'http://10.116.233.243:5000';
+      return 'https://blumark.onrender.com';
+      // return 'http://10.116.233.243:5000';
     }
 
-    return 'http://10.0.2.2:5000';
+    return 'https://blumark.onrender.com';
+
+    // return 'http://10.0.2.2:5000';
   }
 }
