@@ -2030,6 +2030,7 @@ export async function findTeacherSessionAttendanceRoster({
     },
     select: {
       id: true,
+      sessionCode: true,
       status: true,
       startsAt: true,
       expiresAt: true,
