@@ -60,8 +60,9 @@ class _CreateAttendanceSessionScreenState
   Future<void> _openBluetoothSettings() async {
     try {
       if (_deviceStatus['bluetoothPermissionGranted'] != true) {
-        final granted = await BleAttendanceChannel.instance
-            .requestPermissions();
+        final granted = await BleAttendanceChannel.instance.requestPermissions(
+          role: 'TEACHER',
+        );
         if (!granted) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -88,26 +89,54 @@ class _CreateAttendanceSessionScreenState
   }
 
   Future<void> _createSession(String classSubjectId) async {
-    if (_isLoading) return;
+    print("2");
+    if (_isLoading) {
+      BleAttendanceChannel.log(
+        'TEACHER',
+        'Session creation skipped: another create request is in progress',
+      );
+      return;
+    }
     setState(() {
       _isLoading = true;
       _deviceTime = DateTime.now();
     });
+    print("3");
 
     try {
+      BleAttendanceChannel.log(
+        'TEACHER',
+        'Creating attendance session; durationMinutes=$_durationMinutes '
+            'sessionType=$_sessionType',
+      );
+      print("4");
       final response = await ref
           .read(teacherRepositoryProvider)
           .createAttendanceSession({
             'classSubjectId': classSubjectId,
             'durationMinutes': _durationMinutes,
           });
-      if (!mounted) return;
+
+      print('5: API response received');
+      print('Response: $response');
+      
+      if (!mounted) {
+        BleAttendanceChannel.log(
+          'TEACHER',
+          'Session creation response ignored: screen was disposed',
+        );
+        return;
+      }
       final session = response['session'];
       final sessionId =
           response['id'] ??
           (session is Map ? session['id'] : null) ??
           response['_id'];
       if (sessionId == null) {
+        BleAttendanceChannel.log(
+          'TEACHER',
+          'Session creation failed: backend returned no session ID',
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Session created, but the backend returned no ID.'),
@@ -115,11 +144,22 @@ class _CreateAttendanceSessionScreenState
         );
         return;
       }
+      final enableBle = _sessionType == 'Bluetooth + teacher controls';
+      BleAttendanceChannel.log(
+        'TEACHER',
+        'Session created; navigating to active attendance '
+            'sessionId=$sessionId enabled=$enableBle',
+      );
       context.pushReplacement(
         '/teacher/attendance/active/$sessionId',
-        extra: {'enableBle': _sessionType == 'Bluetooth + teacher controls'},
+        extra: {'enableBle': enableBle},
       );
+      print("6");
     } catch (error) {
+      BleAttendanceChannel.log(
+        'TEACHER',
+        'Session creation or navigation failed: $error',
+      );
       if (mounted) {
         final message = error.toString().replaceFirst('ApiException: ', '');
         ScaffoldMessenger.of(context).showSnackBar(
@@ -462,7 +502,16 @@ class _CreateAttendanceSessionScreenState
                 child: FilledButton.icon(
                   onPressed: _isLoading
                       ? null
-                      : () => _createSession(selectedAssignment),
+                      : () {
+                          print("1");
+                          BleAttendanceChannel.log(
+                            'TEACHER',
+                            'Start Session button callback; '
+                                'sessionType=$_sessionType '
+                                'classSubjectId=$selectedAssignment',
+                          );
+                          unawaited(_createSession(selectedAssignment));
+                        },
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: AppColors.white,

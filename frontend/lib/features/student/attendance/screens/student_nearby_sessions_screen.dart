@@ -20,6 +20,7 @@ class _StudentNearbySessionsScreenState
     extends ConsumerState<StudentNearbySessionsScreen>
     with WidgetsBindingObserver {
   final Map<String, Map<String, dynamic>> _sessions = {};
+  final Map<String, DateTime> _lastDuplicateSessionLog = {};
   StreamSubscription<BleAttendanceEvent>? _events;
   Timer? _availabilityTimer;
   Map<String, dynamic> _deviceStatus = const {};
@@ -98,6 +99,7 @@ class _StudentNearbySessionsScreenState
           return;
         }
         final key = '$deviceAddress|$sessionCode';
+        final isNewSession = !_sessions.containsKey(key);
         setState(() {
           _sessions[key] = {
             ...?_sessions[key],
@@ -105,8 +107,30 @@ class _StudentNearbySessionsScreenState
             'lastSeen': DateTime.now(),
           };
         });
+        if (isNewSession) {
+          BleAttendanceChannel.log(
+            'STUDENT',
+            'Nearby teacher session discovered sessionCode=$sessionCode',
+          );
+        } else {
+          final now = DateTime.now();
+          final lastLogged = _lastDuplicateSessionLog[key];
+          if (lastLogged == null ||
+              now.difference(lastLogged) >= const Duration(seconds: 10)) {
+            _lastDuplicateSessionLog[key] = now;
+            BleAttendanceChannel.log(
+              'STUDENT',
+              'Duplicate advertisement folded into existing session card '
+                  'sessionCode=$sessionCode',
+            );
+          }
+        }
       },
       onError: (Object error) {
+        BleAttendanceChannel.log(
+          'STUDENT',
+          'Scanner event stream failed: $error',
+        );
         if (!mounted) return;
         _availabilityTimer?.cancel();
         _availabilityTimer = null;
@@ -119,7 +143,17 @@ class _StudentNearbySessionsScreenState
   }
 
   Future<void> _startScanning({bool rescan = false}) async {
-    if (_scanBusy) return;
+    if (_scanBusy) {
+      BleAttendanceChannel.log(
+        'STUDENT',
+        'Scan start ignored because another scan operation is in progress',
+      );
+      return;
+    }
+    BleAttendanceChannel.log(
+      'STUDENT',
+      'Start scanning requested rescan=$rescan currentlyScanning=$_scanning',
+    );
     setState(() {
       _scanBusy = true;
       _message = null;
@@ -139,6 +173,10 @@ class _StudentNearbySessionsScreenState
           .requestPermissions();
       if (!mounted) return;
       if (!permitted) {
+        BleAttendanceChannel.log(
+          'STUDENT',
+          'Scan not started: permissions denied',
+        );
         setState(() => _message = 'Bluetooth permission is required to scan.');
         return;
       }
@@ -150,10 +188,18 @@ class _StudentNearbySessionsScreenState
         _loadingStatus = false;
       });
       if (status['bluetoothOn'] != true) {
+        BleAttendanceChannel.log(
+          'STUDENT',
+          'Scan not started: Bluetooth is off',
+        );
         setState(() => _message = 'Turn on Bluetooth to find nearby sessions.');
         return;
       }
       if (status['locationRequired'] == true && status['locationOn'] != true) {
+        BleAttendanceChannel.log(
+          'STUDENT',
+          'Scan not started: Location services are required and disabled',
+        );
         setState(
           () => _message =
               'Turn on Location services to scan for Bluetooth sessions on this Android version.',
@@ -163,6 +209,10 @@ class _StudentNearbySessionsScreenState
 
       _listenForSessions();
       await BleAttendanceChannel.instance.startStudentScan();
+      BleAttendanceChannel.log(
+        'STUDENT',
+        'Scanning started from Nearby Sessions',
+      );
       if (!mounted) return;
       setState(() {
         _scanning = true;
@@ -172,6 +222,7 @@ class _StudentNearbySessionsScreenState
         if (mounted && _scanning) setState(() {});
       });
     } catch (error) {
+      BleAttendanceChannel.log('STUDENT', 'Could not start scanning: $error');
       if (mounted) {
         setState(() {
           _scanning = false;
@@ -184,7 +235,14 @@ class _StudentNearbySessionsScreenState
   }
 
   Future<void> _stopScanning() async {
-    if (_scanBusy || !_scanning) return;
+    if (_scanBusy || !_scanning) {
+      BleAttendanceChannel.log(
+        'STUDENT',
+        'Scan stop ignored scanBusy=$_scanBusy scanning=$_scanning',
+      );
+      return;
+    }
+    BleAttendanceChannel.log('STUDENT', 'Stop scanning requested by student');
     setState(() => _scanBusy = true);
     try {
       await BleAttendanceChannel.instance.stopStudentScan();
@@ -197,6 +255,7 @@ class _StudentNearbySessionsScreenState
         });
       }
     } catch (error) {
+      BleAttendanceChannel.log('STUDENT', 'Could not stop scanning: $error');
       if (mounted) setState(() => _message = 'Could not stop scanning: $error');
     } finally {
       if (mounted) setState(() => _scanBusy = false);
@@ -269,7 +328,15 @@ class _StudentNearbySessionsScreenState
         lastSeen is! DateTime ||
         DateTime.now().difference(lastSeen) > const Duration(seconds: 8);
 
+    BleAttendanceChannel.log(
+      'STUDENT',
+      'Mark Attendance tapped sessionCode=${sessionCode ?? '<missing>'}',
+    );
     if (seatNumber == null || seatNumber.isEmpty) {
+      BleAttendanceChannel.log(
+        'STUDENT',
+        'Attendance request blocked: authenticated profile has no student number',
+      );
       setState(
         () =>
             _message = 'Your authenticated student profile has no seat number.',
@@ -281,6 +348,24 @@ class _StudentNearbySessionsScreenState
         !_scanning ||
         isStale ||
         (expiresAt != null && !expiresAt.isAfter(DateTime.now()))) {
+      if (expiresAt != null && !expiresAt.isAfter(DateTime.now())) {
+        BleAttendanceChannel.log(
+          'STUDENT',
+          'Expired session cannot be marked sessionCode=${sessionCode ?? '<missing>'}',
+        );
+      } else if (isStale) {
+        BleAttendanceChannel.log(
+          'STUDENT',
+          'Attendance request blocked: session advertisement is stale '
+              'sessionCode=${sessionCode ?? '<missing>'}',
+        );
+      } else {
+        BleAttendanceChannel.log(
+          'STUDENT',
+          'Attendance request blocked: scanning or session details unavailable '
+              'sessionCode=${sessionCode ?? '<missing>'}',
+        );
+      }
       setState(
         () => _message =
             'This session is no longer available. Rescan to verify it is still active.',
@@ -298,10 +383,19 @@ class _StudentNearbySessionsScreenState
         sessionCode: sessionCode,
         seatNumber: seatNumber,
       );
+      BleAttendanceChannel.log(
+        'STUDENT',
+        'Attendance request submitted to native BLE client '
+            'sessionCode=$sessionCode',
+      );
       if (mounted) {
         setState(() => _message = 'Attendance request sent to the teacher.');
       }
     } catch (error) {
+      BleAttendanceChannel.log(
+        'STUDENT',
+        'Attendance request failed sessionCode=$sessionCode error=$error',
+      );
       if (mounted) {
         setState(() => _message = 'Attendance request failed: $error');
       }

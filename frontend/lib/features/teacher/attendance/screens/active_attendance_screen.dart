@@ -24,8 +24,10 @@ class _ActiveAttendanceScreenState
   bool _isSaving = false;
   bool _isEnding = false;
   bool _hasLoadedInitial = false;
+  bool _loggedRosterError = false;
   bool _bleStarting = false;
   bool _bleStarted = false;
+  bool _loggedInactiveBleSkip = false;
   DateTime? _sessionExpiresAt;
   StreamSubscription<BleAttendanceEvent>? _bleSubscription;
   Timer? _bleExpiryTimer;
@@ -46,22 +48,42 @@ class _ActiveAttendanceScreenState
     Map<String, dynamic> session,
     List<dynamic> roster,
   ) async {
+    print("========== SESSION DATA ==========");
+    print(session);
+    print("Session keys: ${session.keys}");
+    print("Session code: ${session['sessionCode']}");
     final code = session['sessionCode'] as String?;
     final extra = GoRouterState.of(context).extra;
     final enableBle = !(extra is Map && extra['enableBle'] == false);
+    BleAttendanceChannel.log(
+      'TEACHER',
+      'Active Attendance BLE initialization requested '
+          'sessionCode=${code ?? '<missing>'} enabled=$enableBle',
+    );
     if (!enableBle) {
       if (_bleState != 'Teacher controls only') {
         setState(() => _bleState = 'Teacher controls only');
       }
       return;
     }
-    if (code == null || code.isEmpty || _bleStarting || _bleStarted) return;
+    if (code == null || code.isEmpty || _bleStarting || _bleStarted) {
+      BleAttendanceChannel.log(
+        'TEACHER',
+        'BLE initialization skipped sessionCode=${code ?? '<missing>'} '
+            'alreadyStarting=$_bleStarting alreadyStarted=$_bleStarted',
+      );
+      return;
+    }
 
     final expiryValue = session['expiresAt']?.toString();
     final expiry = expiryValue == null
         ? null
         : DateTime.tryParse(expiryValue)?.toLocal();
     if (expiry != null && !expiry.isAfter(DateTime.now())) {
+      BleAttendanceChannel.log(
+        'TEACHER',
+        'BLE advertising not started: session already expired sessionCode=$code',
+      );
       setState(() => _bleState = 'Session expired — Bluetooth is stopped');
       await _bleSubscription?.cancel();
       _bleSubscription = null;
@@ -71,16 +93,40 @@ class _ActiveAttendanceScreenState
 
     _bleStarting = true;
     try {
-      final permitted = await BleAttendanceChannel.instance
-          .requestPermissions();
-      if (!mounted) return;
+      BleAttendanceChannel.log(
+        'TEACHER',
+        'Requesting Bluetooth permissions for sessionCode=$code',
+      );
+      final permitted = await BleAttendanceChannel.instance.requestPermissions(
+        role: 'TEACHER',
+      );
+      BleAttendanceChannel.log(
+        'TEACHER',
+        'Bluetooth permission result granted=$permitted sessionCode=$code',
+      );
+      if (!mounted) {
+        BleAttendanceChannel.log(
+          'TEACHER',
+          'BLE initialization stopped: screen was disposed during permission request',
+        );
+        return;
+      }
       if (!permitted) {
+        BleAttendanceChannel.log(
+          'TEACHER',
+          'BLE advertising not started: permissions denied sessionCode=$code',
+        );
         setState(() => _bleState = 'Bluetooth permission is required');
         return;
       }
       _bleSubscription ??= BleAttendanceChannel.instance.events.listen((event) {
         if (!mounted) return;
         if (event.type == 'status') {
+          BleAttendanceChannel.log(
+            'TEACHER',
+            'BLE status event state=${event.data['state']} '
+                'errorCode=${event.data['errorCode']}',
+          );
           setState(() => _bleState = event.data['state'] as String? ?? 'Ready');
           return;
         }
@@ -88,9 +134,22 @@ class _ActiveAttendanceScreenState
             event.data['sessionCode'] != code ||
             (_sessionExpiresAt != null &&
                 !_sessionExpiresAt!.isAfter(DateTime.now()))) {
+          if (event.type == 'attendanceAttempt') {
+            BleAttendanceChannel.log(
+              'TEACHER',
+              'Attendance request ignored: session mismatch or expired '
+                  'receivedSessionCode=${event.data['sessionCode']} '
+                  'activeSessionCode=$code',
+            );
+          }
           return;
         }
         final seat = event.data['seatNumber']?.toString();
+        BleAttendanceChannel.log(
+          'TEACHER',
+          'Matching attendance request against class roster '
+              'sessionCode=$code seatNumber=${seat ?? '<missing>'}',
+        );
         Map? matchedStudent;
         for (final item in roster) {
           if (item is! Map) continue;
@@ -102,24 +161,50 @@ class _ActiveAttendanceScreenState
         }
         final studentId = matchedStudent?['id']?.toString();
         if (studentId == null || studentId.isEmpty) {
+          BleAttendanceChannel.log(
+            'TEACHER',
+            'Attendance request rejected: student not found in class roster '
+                'sessionCode=$code seatNumber=${seat ?? '<missing>'}',
+          );
           setState(
             () => _bleState = 'Request rejected: seat is not in this class',
           );
           return;
         }
-        if (_localSelections[studentId] == 'PRESENT') return;
+        if (_localSelections[studentId] == 'PRESENT') {
+          BleAttendanceChannel.log(
+            'TEACHER',
+            'Duplicate attendance request ignored; student already Present '
+                'sessionCode=$code seatNumber=${seat ?? '<missing>'}',
+          );
+          return;
+        }
         setState(() {
           _localSelections[studentId] = 'PRESENT';
           _bleMarkedCount++;
           _bleState = 'Attendance received — ready to save';
         });
+        BleAttendanceChannel.log(
+          'TEACHER',
+          'Attendance queued locally as Present; awaiting Save Attendance '
+              'sessionCode=$code seatNumber=${seat ?? '<missing>'}',
+        );
       });
 
       if (expiry != null && !expiry.isAfter(DateTime.now())) {
+        BleAttendanceChannel.log(
+          'TEACHER',
+          'BLE initialization stopped: session expired after permission request '
+              'sessionCode=$code',
+        );
         setState(() => _bleState = 'Session expired — Bluetooth is stopped');
         return;
       }
       await BleAttendanceChannel.instance.startTeacherSession(code);
+      BleAttendanceChannel.log(
+        'TEACHER',
+        'Teacher BLE start request accepted by native channel sessionCode=$code',
+      );
       _bleStarted = true;
       if (!mounted) {
         unawaited(BleAttendanceChannel.instance.stopTeacherSession());
@@ -133,6 +218,10 @@ class _ActiveAttendanceScreenState
         );
       }
     } catch (error) {
+      BleAttendanceChannel.log(
+        'TEACHER',
+        'BLE initialization failed sessionCode=$code error=$error',
+      );
       if (mounted) {
         setState(() => _bleState = 'Bluetooth unavailable: $error');
       }
@@ -144,6 +233,10 @@ class _ActiveAttendanceScreenState
   }
 
   Future<void> _stopBleAtExpiry() async {
+    BleAttendanceChannel.log(
+      'TEACHER',
+      'Stopping BLE because attendance session expired',
+    );
     try {
       if (_bleStarted) {
         await BleAttendanceChannel.instance.stopTeacherSession();
@@ -200,6 +293,7 @@ class _ActiveAttendanceScreenState
         },
         child: rosterAsync.when(
           data: (data) {
+            _loggedRosterError = false;
             final session = data['session'] as Map<String, dynamic>? ?? {};
             final roster = data['roster'] as List<dynamic>? ?? [];
 
@@ -239,6 +333,14 @@ class _ActiveAttendanceScreenState
             if (sessionStatus == 'ACTIVE') {
               WidgetsBinding.instance.addPostFrameCallback(
                 (_) => _startBle(session, roster),
+              );
+            } else if (!_loggedInactiveBleSkip) {
+              _loggedInactiveBleSkip = true;
+              BleAttendanceChannel.log(
+                'TEACHER',
+                'BLE initialization not requested: session is not active '
+                    'sessionCode=${session['sessionCode'] ?? '<missing>'} '
+                    'status=$sessionStatus',
               );
             }
 
@@ -754,12 +856,22 @@ class _ActiveAttendanceScreenState
           loading: () => const Center(
             child: CircularProgressIndicator(color: AppColors.primary),
           ),
-          error: (error, _) => Center(
-            child: Text(
-              'Error loading live session: $error',
-              style: const TextStyle(color: AppColors.error),
-            ),
-          ),
+          error: (error, _) {
+            if (!_loggedRosterError) {
+              _loggedRosterError = true;
+              BleAttendanceChannel.log(
+                'TEACHER',
+                'BLE startup blocked: active session roster failed to load; '
+                    'error=$error',
+              );
+            }
+            return Center(
+              child: Text(
+                'Error loading live session: $error',
+                style: const TextStyle(color: AppColors.error),
+              ),
+            );
+          },
         ),
       ),
     );
