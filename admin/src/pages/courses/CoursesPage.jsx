@@ -1,0 +1,1 @@
+import EmptyUnavailable from "../../components/common/EmptyUnavailable"; export default function CoursesPage(){return <EmptyUnavailable title="Course management" detail="The current academic schema supports departments, classes, subjects, and teacher assignments but does not have a course entity or endpoint."/>}

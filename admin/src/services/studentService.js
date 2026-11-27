@@ -1,0 +1,2 @@
+import api from "./api";
+export const studentService = { list: (params) => api.get("/admin/students", { params }), get: (id) => api.get(`/admin/students/${id}`), enrollment: (id) => api.get(`/admin/students/${id}/enrollment`), assignEnrollment: (id, classId) => api.put(`/admin/students/${id}/enrollment`, { classId }), setStatus: (id, isActive) => api.patch(`/admin/${id}/status`, { isActive }), provision: (payload) => api.post("/auth/provision-user", payload) };

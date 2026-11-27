@@ -1,0 +1,1 @@
+import EmptyUnavailable from "../../components/common/EmptyUnavailable"; export default function ReportsPage(){return <EmptyUnavailable title="Reports and exports" detail="The API does not yet provide report aggregation or export endpoints. The dashboard uses only available real institution summary data."/>}
