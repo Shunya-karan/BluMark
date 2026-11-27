@@ -156,3 +156,95 @@ export async function getDashboard(user) {
     recentActivity,
   };
 }
+
+export async function listAttendanceSessions(user, query) {
+  const { institutionId } = await adminContext(user);
+  const { page, limit, search, status, classId, date, sortOrder } = query;
+
+  const where = {};
+
+  if (status && status !== "ALL") {
+    where.status = status;
+  }
+
+  if (classId) {
+    where.classSubject = {
+      is: { classId },
+    };
+  }
+
+  if (date) {
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+    where.startsAt = {
+      gte: dayStart,
+      lte: dayEnd,
+    };
+  }
+
+  if (search) {
+    where.OR = [
+      {
+        teacher: {
+          is: { fullName: { contains: search, mode: "insensitive" } },
+        },
+      },
+      {
+        classSubject: {
+          is: {
+            subject: {
+              is: { name: { contains: search, mode: "insensitive" } },
+            },
+          },
+        },
+      },
+      {
+        classSubject: {
+          is: {
+            schoolClass: {
+              is: { name: { contains: search, mode: "insensitive" } },
+            },
+          },
+        },
+      },
+    ];
+  }
+
+  const result = await repository.findAttendanceSessions({
+    institutionId,
+    where,
+    skip: (page - 1) * limit,
+    take: limit,
+    sortOrder,
+  });
+
+  return {
+    sessions: result.items,
+    pagination: {
+      page,
+      limit,
+      total: result.total,
+      totalPages: Math.ceil(result.total / limit),
+      hasNextPage: page * limit < result.total,
+      hasPreviousPage: page > 1,
+    },
+  };
+}
+
+export async function getAttendanceSessionDetails(user, sessionId) {
+  const { institutionId } = await adminContext(user);
+
+  const session = await repository.findAttendanceSessionDetails(
+    institutionId,
+    sessionId,
+  );
+
+  if (!session) {
+    throw new AppError("Attendance session not found", 404);
+  }
+
+  return session;
+}
+

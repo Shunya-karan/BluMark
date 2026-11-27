@@ -27,6 +27,7 @@ const teacherSelect = {
   teacherDetails: {
     select: {
       employeeId: true,
+      departmentId: true,
       department: {
         select: {
           id: true,
@@ -92,8 +93,8 @@ export async function findStudents({
   return { items, total };
 }
 
-export function findStudent(profileId, institutionId) {
-  return prisma.profile.findFirst({
+export function findStudent(profileId, institutionId, db = prisma) {
+  return db.profile.findFirst({
     where: {
       id: profileId,
       institutionId,
@@ -178,8 +179,8 @@ export async function findTeachers({
   return { items, total };
 }
 
-export function findTeacher(profileId, institutionId) {
-  return prisma.profile.findFirst({
+export function findTeacher(profileId, institutionId, db = prisma) {
+  return db.profile.findFirst({
     where: {
       id: profileId,
       institutionId,
@@ -419,3 +420,154 @@ export function activateEnrollment(
     },
   });
 }
+
+// PROFILE UPDATES & CHECKS
+
+export function findStudentByEmail(institutionId, email, excludeProfileId, db = prisma) {
+  return db.profile.findFirst({
+    where: {
+      institutionId,
+      email: { equals: email, mode: "insensitive" },
+      id: { not: excludeProfileId },
+    },
+    select: { id: true },
+  });
+}
+
+export function findStudentByNumber(institutionId, studentNumber, excludeProfileId, db = prisma) {
+  return db.studentDetail.findFirst({
+    where: {
+      institutionId,
+      studentNumber: { equals: studentNumber, mode: "insensitive" },
+      profileId: { not: excludeProfileId },
+    },
+    select: { profileId: true },
+  });
+}
+
+export function findTeacherByEmployeeId(institutionId, employeeId, excludeProfileId, db = prisma) {
+  return db.teacherDetail.findFirst({
+    where: {
+      institutionId,
+      employeeId: { equals: employeeId, mode: "insensitive" },
+      profileId: { not: excludeProfileId },
+    },
+    select: { profileId: true },
+  });
+}
+
+export function findDepartment(departmentId, institutionId, db = prisma) {
+  return db.department.findFirst({
+    where: {
+      id: departmentId,
+      institutionId,
+      isActive: true,
+    },
+    select: { id: true, name: true, code: true },
+  });
+}
+
+export function deactivateAllEnrollments(studentId, institutionId, db = prisma) {
+  return db.enrollment.updateMany({
+    where: {
+      studentId,
+      institutionId,
+      isActive: true,
+    },
+    data: { isActive: false },
+  });
+}
+
+export async function updateStudentDetails(
+  profileId,
+  institutionId,
+  profileData,
+  studentNumber,
+  db = prisma,
+) {
+  if (Object.keys(profileData).length > 0) {
+    await db.profile.update({
+      where: {
+        id_institutionId: {
+          id: profileId,
+          institutionId,
+        },
+      },
+      data: profileData,
+    });
+
+    if (profileData.email) {
+      await db.userCredential.updateMany({
+        where: { profileId },
+        data: { emailNormalized: profileData.email.toLowerCase() },
+      });
+    }
+  }
+
+  if (studentNumber !== undefined) {
+    await db.studentDetail.upsert({
+      where: {
+        profileId_institutionId: {
+          profileId,
+          institutionId,
+        },
+      },
+      update: { studentNumber },
+      create: {
+        profileId,
+        institutionId,
+        studentNumber,
+      },
+    });
+  }
+}
+
+export async function updateTeacherDetails(
+  profileId,
+  institutionId,
+  profileData,
+  teacherData,
+  db = prisma,
+) {
+  if (Object.keys(profileData).length > 0) {
+    await db.profile.update({
+      where: {
+        id_institutionId: {
+          id: profileId,
+          institutionId,
+        },
+      },
+      data: profileData,
+    });
+
+    if (profileData.email) {
+      await db.userCredential.updateMany({
+        where: { profileId },
+        data: { emailNormalized: profileData.email.toLowerCase() },
+      });
+    }
+  }
+
+  if (Object.keys(teacherData).length > 0) {
+    const updateData = {};
+    if (teacherData.employeeId !== undefined) updateData.employeeId = teacherData.employeeId;
+    if (teacherData.departmentId !== undefined) updateData.departmentId = teacherData.departmentId;
+
+    await db.teacherDetail.upsert({
+      where: {
+        profileId_institutionId: {
+          profileId,
+          institutionId,
+        },
+      },
+      update: updateData,
+      create: {
+        profileId,
+        institutionId,
+        employeeId: teacherData.employeeId || "",
+        departmentId: teacherData.departmentId || null,
+      },
+    });
+  }
+}
+

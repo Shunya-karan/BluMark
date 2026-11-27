@@ -31,9 +31,10 @@ async function getAdminContext(user) {
   };
 }
 
-function paginationResult(items, total, page, limit) {
+function paginationResult(items, total, page, limit, entityKey) {
   return {
     items,
+    ...(entityKey ? { [entityKey]: items } : {}),
     pagination: {
       page,
       limit,
@@ -111,7 +112,7 @@ export async function listDepartments(user, query) {
     sortOrder,
   });
 
-  return paginationResult(result.items, result.total, page, limit);
+  return paginationResult(result.items, result.total, page, limit, "departments");
 }
 
 export async function getDepartment(user, departmentId) {
@@ -258,7 +259,7 @@ export async function listClasses(user, query) {
     sortOrder,
   });
 
-  return paginationResult(result.items, result.total, page, limit);
+  return paginationResult(result.items, result.total, page, limit, "classes");
 }
 
 export async function getClass(user, classId) {
@@ -387,7 +388,7 @@ export async function listSubjects(user, query) {
     sortOrder,
   });
 
-  return paginationResult(result.items, result.total, page, limit);
+  return paginationResult(result.items, result.total, page, limit, "subjects");
 }
 
 export async function getSubject(user, subjectId) {
@@ -522,7 +523,7 @@ export async function listAssignments(user, query) {
     sortOrder,
   });
 
-  return paginationResult(result.items, result.total, page, limit);
+  return paginationResult(result.items, result.total, page, limit, "assignments");
 }
 
 export async function getAssignment(user, assignmentId) {

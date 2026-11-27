@@ -387,3 +387,188 @@ export async function assignStudentEnrollment(user, profileId, classId) {
     };
   });
 }
+
+export async function updateStudent(user, profileId, data) {
+  const { adminId, institutionId } = adminContext(user);
+
+  const existing = await repository.findManageableUser(
+    profileId,
+    institutionId,
+  );
+
+  if (!existing || existing.role !== "STUDENT") {
+    throw new AppError("Student account not found", 404);
+  }
+
+  if (data.email) {
+    const emailConflict = await repository.findStudentByEmail(
+      institutionId,
+      data.email,
+      profileId,
+    );
+    if (emailConflict) {
+      throw new AppError("A user with this email already exists", 409);
+    }
+  }
+
+  if (data.studentNumber) {
+    const numberConflict = await repository.findStudentByNumber(
+      institutionId,
+      data.studentNumber,
+      profileId,
+    );
+    if (numberConflict) {
+      throw new AppError("A student with this student number already exists", 409);
+    }
+  }
+
+  if (data.classId) {
+    const targetClass = await repository.findActiveClass(
+      data.classId,
+      institutionId,
+    );
+    if (!targetClass) {
+      throw new AppError("Active class not found in this institution", 404);
+    }
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const profileData = {};
+    if (data.fullName !== undefined) profileData.fullName = data.fullName;
+    if (data.email !== undefined) profileData.email = data.email;
+    if (data.phone !== undefined) profileData.phone = data.phone;
+
+    await repository.updateStudentDetails(
+      profileId,
+      institutionId,
+      profileData,
+      data.studentNumber,
+      tx,
+    );
+
+    if (data.classId !== undefined) {
+      if (data.classId === null) {
+        await repository.deactivateAllEnrollments(profileId, institutionId, tx);
+      } else {
+        const existingEnrollment = await repository.findExistingEnrollment(
+          profileId,
+          data.classId,
+          institutionId,
+          tx,
+        );
+        await repository.deactivateOtherEnrollments(
+          profileId,
+          institutionId,
+          data.classId,
+          tx,
+        );
+        await repository.activateEnrollment(
+          profileId,
+          data.classId,
+          institutionId,
+          existingEnrollment,
+          tx,
+        );
+      }
+    }
+
+    await createAuditLog({
+      tx,
+      institutionId,
+      actorId: adminId,
+      action: "STUDENT_UPDATED",
+      entityType: "Profile",
+      entityId: profileId,
+      details: {
+        changedFields: Object.keys(data),
+      },
+    });
+
+    const student = await repository.findStudent(profileId, institutionId, tx);
+    const activeEnrollments = (student?.enrollments || []).filter((item) => item.isActive);
+
+    return {
+      ...student,
+      activeEnrollment: activeEnrollments[0] ?? null,
+    };
+  });
+}
+
+export async function updateTeacher(user, profileId, data) {
+  const { adminId, institutionId } = adminContext(user);
+
+  const existing = await repository.findManageableUser(
+    profileId,
+    institutionId,
+  );
+
+  if (!existing || existing.role !== "TEACHER") {
+    throw new AppError("Teacher account not found", 404);
+  }
+
+  if (data.email) {
+    const emailConflict = await repository.findStudentByEmail(
+      institutionId,
+      data.email,
+      profileId,
+    );
+    if (emailConflict) {
+      throw new AppError("A user with this email already exists", 409);
+    }
+  }
+
+  if (data.employeeId) {
+    const employeeConflict = await repository.findTeacherByEmployeeId(
+      institutionId,
+      data.employeeId,
+      profileId,
+    );
+    if (employeeConflict) {
+      throw new AppError("A teacher with this employee ID already exists", 409);
+    }
+  }
+
+  if (data.departmentId) {
+    const department = await repository.findDepartment(
+      data.departmentId,
+      institutionId,
+    );
+    if (!department) {
+      throw new AppError("Active department not found in this institution", 404);
+    }
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const profileData = {};
+    if (data.fullName !== undefined) profileData.fullName = data.fullName;
+    if (data.email !== undefined) profileData.email = data.email;
+    if (data.phone !== undefined) profileData.phone = data.phone;
+
+    const teacherData = {};
+    if (data.employeeId !== undefined) teacherData.employeeId = data.employeeId;
+    if (data.departmentId !== undefined) teacherData.departmentId = data.departmentId;
+
+    await repository.updateTeacherDetails(
+      profileId,
+      institutionId,
+      profileData,
+      teacherData,
+      tx,
+    );
+
+    await createAuditLog({
+      tx,
+      institutionId,
+      actorId: adminId,
+      action: "TEACHER_UPDATED",
+      entityType: "Profile",
+      entityId: profileId,
+      details: {
+        changedFields: Object.keys(data),
+      },
+    });
+
+    return repository.findTeacher(profileId, institutionId, tx);
+  });
+}
+

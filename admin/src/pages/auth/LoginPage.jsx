@@ -1,2 +1,96 @@
-import { useState } from "react"; import { Navigate, useNavigate } from "react-router-dom"; import { LockKeyhole, Mail, ShieldCheck } from "lucide-react"; import { useAuth } from "../../hooks/useAuth"; import { errorMessage } from "../../services/api";
-export default function LoginPage() { const {user,signIn}=useAuth(); const nav=useNavigate(); const [form,setForm]=useState({email:"",password:""}); const [error,setError]=useState(""); const [saving,setSaving]=useState(false); if(user)return <Navigate to="/" replace/>; const submit=async(e)=>{e.preventDefault();setError("");setSaving(true);try{await signIn(form);nav("/");}catch(err){setError(err.message||errorMessage(err));}finally{setSaving(false)}}; return <main className="grid min-h-screen bg-slate-50 lg:grid-cols-2"><section className="hidden flex-col justify-between bg-ink p-12 text-white lg:flex"><div className="flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-400 text-xl font-black text-ink">B</div><span className="text-xl font-bold">BlueMark</span></div><div><p className="mb-4 text-sm font-semibold uppercase tracking-[.2em] text-emerald-300">Administration portal</p><h1 className="max-w-lg text-5xl font-bold leading-tight">Your institution, clearly in view.</h1><p className="mt-5 max-w-md leading-7 text-emerald-50/70">Manage academic operations, people, notifications, and Bluetooth attendance from one secure workspace.</p></div><div className="flex items-center gap-2 text-sm text-emerald-100/70"><ShieldCheck size={18}/> Protected institution-level access</div></section><section className="grid place-items-center p-6"><form onSubmit={submit} className="w-full max-w-md"><div className="mb-10 lg:hidden"><div className="text-2xl font-bold text-ink">BlueMark</div><p className="text-sm text-slate-500">Administration portal</p></div><h2 className="text-3xl font-bold text-ink">Welcome back</h2><p className="mt-2 text-slate-500">Sign in with your administrator account.</p>{error&&<div className="mt-5 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}<label className="label mt-7">Email address</label><div className="relative"><Mail className="absolute left-3 top-3 text-slate-400" size={18}/><input className="input pl-10" type="email" required autoComplete="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></div><label className="label mt-5">Password</label><div className="relative"><LockKeyhole className="absolute left-3 top-3 text-slate-400" size={18}/><input className="input pl-10" type="password" required autoComplete="current-password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})}/></div><button disabled={saving} className="btn-primary mt-7 w-full disabled:opacity-60">{saving?"Signing in…":"Sign in securely"}</button><p className="mt-5 text-center text-xs text-slate-400">Only authorized institution administrators can access this portal.</p></form></section></main>; }
+import { useState } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { LockKeyhole, Mail, ShieldCheck } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
+import { errorMessage } from "../../services/api";
+export default function LoginPage() {
+  const { user, signIn } = useAuth();
+  const nav = useNavigate();
+  const [form, setForm] = useState({ email: "", password: "" });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  if (user) return <Navigate to="/" replace />;
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSaving(true);
+    try {
+      await signIn(form);
+      nav("/");
+    } catch (err) {
+      setError(err.message || errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <main className="grid min-h-screen bg-slate-50 lg:grid-cols-2">
+      <section className="hidden flex-col justify-between bg-ink p-12 text-white lg:flex">
+        <div className="flex items-center gap-3">
+          <div className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-400 text-xl font-black text-ink">
+            B
+          </div>
+          <span className="text-xl font-bold">BluMark</span>
+        </div>
+        <div>
+          <p className="mb-4 text-sm font-semibold uppercase tracking-[.2em] text-emerald-300">
+            Administration portal
+          </p>
+          <h1 className="max-w-lg text-5xl font-bold leading-tight">
+            Your institution, clearly in view.
+          </h1>
+          <p className="mt-5 max-w-md leading-7 text-emerald-50/70">
+            Manage academic operations, people, notifications, and Bluetooth attendance from one
+            secure workspace.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-emerald-100/70">
+          <ShieldCheck size={18} /> Protected institution-level access
+        </div>
+      </section>
+      <section className="grid place-items-center p-6">
+        <form onSubmit={submit} className="w-full max-w-md">
+          <div className="mb-10 lg:hidden">
+            <div className="text-2xl font-bold text-ink">BluMark</div>
+            <p className="text-sm text-slate-500">Administration portal</p>
+          </div>
+          <h2 className="text-3xl font-bold text-ink">Welcome back</h2>
+          <p className="mt-2 text-slate-500">Sign in with your administrator account.</p>
+          {error && (
+            <div className="mt-5 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</div>
+          )}
+          <label className="label mt-7">Email address</label>
+          <div className="relative">
+            <Mail className="absolute left-3 top-3 text-slate-400" size={18} />
+            <input
+              className="input pl-10"
+              type="email"
+              required
+              autoComplete="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+          </div>
+          <label className="label mt-5">Password</label>
+          <div className="relative">
+            <LockKeyhole className="absolute left-3 top-3 text-slate-400" size={18} />
+            <input
+              className="input pl-10"
+              type="password"
+              required
+              autoComplete="current-password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+          </div>
+          <button disabled={saving} className="btn-primary mt-7 w-full disabled:opacity-60">
+            {saving ? "Signing in…" : "Sign in securely"}
+          </button>
+          <p className="mt-5 text-center text-xs text-slate-400">
+            Only authorized institution administrators can access this portal.
+          </p>
+        </form>
+      </section>
+    </main>
+  );
+}

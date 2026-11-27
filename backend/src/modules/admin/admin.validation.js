@@ -12,3 +12,18 @@ export const updateAdminProfileSchema = z.object({
 export const recentActivityQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(10),
 }).strict();
+
+export const sessionIdParamSchema = z.object({
+  sessionId: z.string().uuid("Invalid session ID"),
+}).strict();
+
+export const attendanceSessionsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().trim().max(100).default(""),
+  status: z.enum(["ACTIVE", "ENDED", "EXPIRED", "ALL"]).default("ALL"),
+  classId: z.string().uuid().optional(),
+  date: z.string().trim().optional(),
+  sortOrder: z.enum(["asc", "desc"]).default("desc"),
+}).strict();
+

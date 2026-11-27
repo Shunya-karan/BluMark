@@ -714,7 +714,7 @@ export async function createAttendanceSession(user, data) {
   const endMinutes = expiresAt.getUTCMinutes();
   const endSeconds = expiresAt.getUTCSeconds();
   const endTime = `${String(endMinutes).padStart(2, "0")}${String(endSeconds).padStart(2, "0")}`;
-  const classCode = assignment.schoolClass.code.replace(/\s+/g, "").toUpperCase();
+  const classCode = (assignment.schoolClass.code || assignment.schoolClass.name || "CLASS").replace(/\s+/g, "").toUpperCase();
   const subjectCode = assignment.subject.code.replace(/\s+/g, "").toUpperCase();
   const sessionCode = `${classCode}-${subjectCode}-${dayOfYear}-${endTime}`;
 

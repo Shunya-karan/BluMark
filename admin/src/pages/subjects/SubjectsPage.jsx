@@ -1,2 +1,22 @@
-import DirectoryPage from "../../components/common/DirectoryPage"; import { adminService } from "../../services/adminService";
-export default function SubjectsPage(){return <DirectoryPage title="Subjects" description="Manage subjects available to your institution." service={adminService.subjects} itemKey="subjects" createLabel="Add subject" fields={[{name:"name",label:"Subject name"},{name:"code",label:"Subject code"}]} columns={[{label:"Name",key:"name"},{label:"Code",key:"code"},{label:"Created",render:r=>new Date(r.createdAt).toLocaleDateString()}]}/>}
+import DirectoryPage from "../../components/common/DirectoryPage";
+import { adminService } from "../../services/adminService";
+export default function SubjectsPage() {
+  return (
+    <DirectoryPage
+      title="Subjects"
+      description="Manage subjects available to your institution."
+      service={adminService.subjects}
+      itemKey="subjects"
+      createLabel="Add subject"
+      fields={[
+        { name: "name", label: "Subject name" },
+        { name: "code", label: "Subject code" },
+      ]}
+      columns={[
+        { label: "Name", key: "name" },
+        { label: "Code", key: "code" },
+        { label: "Created", render: (r) => new Date(r.createdAt).toLocaleDateString() },
+      ]}
+    />
+  );
+}

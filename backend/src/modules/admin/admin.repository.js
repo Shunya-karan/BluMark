@@ -183,3 +183,138 @@ export function findRecentInstitutionActivity(institutionId, limit = 10) {
     },
   });
 }
+
+export async function findAttendanceSessions({
+  institutionId,
+  where = {},
+  skip = 0,
+  take = 10,
+  sortOrder = "desc",
+}) {
+  const [items, total] = await prisma.$transaction([
+    prisma.attendanceSession.findMany({
+      where: { institutionId, ...where },
+      select: {
+        id: true,
+        sessionCode: true,
+        status: true,
+        startsAt: true,
+        expiresAt: true,
+        endedAt: true,
+        classSubject: {
+          select: {
+            id: true,
+            schoolClass: {
+              select: {
+                id: true,
+                name: true,
+                division: true,
+                academicYear: true,
+              },
+            },
+            subject: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
+          },
+        },
+        teacher: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
+        _count: {
+          select: {
+            records: true,
+          },
+        },
+      },
+      orderBy: { startsAt: sortOrder },
+      skip,
+      take,
+    }),
+    prisma.attendanceSession.count({
+      where: { institutionId, ...where },
+    }),
+  ]);
+
+  return { items, total };
+}
+
+export function findAttendanceSessionDetails(institutionId, sessionId) {
+  return prisma.attendanceSession.findFirst({
+    where: {
+      id: sessionId,
+      institutionId,
+    },
+    select: {
+      id: true,
+      sessionCode: true,
+      status: true,
+      startsAt: true,
+      expiresAt: true,
+      endedAt: true,
+      classSubject: {
+        select: {
+          id: true,
+          schoolClass: {
+            select: {
+              id: true,
+              name: true,
+              division: true,
+              academicYear: true,
+            },
+          },
+          subject: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
+        },
+      },
+      teacher: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phone: true,
+        },
+      },
+      records: {
+        select: {
+          id: true,
+          status: true,
+          method: true,
+          markedAt: true,
+          notes: true,
+          student: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              studentDetails: {
+                select: {
+                  studentNumber: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { markedAt: "asc" },
+      },
+      _count: {
+        select: {
+          records: true,
+        },
+      },
+    },
+  });
+}
+

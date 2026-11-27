@@ -63,3 +63,32 @@ export const updateProfile = catchAsync(async (req, res) => {
     data,
   );
 });
+
+export const listAttendanceSessions = catchAsync(async (req, res) => {
+  const data = await service.listAttendanceSessions(
+    req.user,
+    req.query,
+  );
+
+  return sendResponse(
+    res,
+    200,
+    "Attendance sessions retrieved successfully",
+    data,
+  );
+});
+
+export const getAttendanceSessionDetails = catchAsync(async (req, res) => {
+  const data = await service.getAttendanceSessionDetails(
+    req.user,
+    req.params.sessionId,
+  );
+
+  return sendResponse(
+    res,
+    200,
+    "Attendance session details retrieved successfully",
+    data,
+  );
+});
+

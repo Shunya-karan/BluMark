@@ -98,3 +98,34 @@ export const assignStudentEnrollment = catchAsync(async (req, res) => {
     data,
   );
 });
+
+export const updateStudent = catchAsync(async (req, res) => {
+  const data = await service.updateStudent(
+    req.user,
+    req.params.profileId,
+    req.body,
+  );
+
+  return sendResponse(
+    res,
+    200,
+    "Student details updated successfully",
+    data,
+  );
+});
+
+export const updateTeacher = catchAsync(async (req, res) => {
+  const data = await service.updateTeacher(
+    req.user,
+    req.params.profileId,
+    req.body,
+  );
+
+  return sendResponse(
+    res,
+    200,
+    "Teacher details updated successfully",
+    data,
+  );
+});
+

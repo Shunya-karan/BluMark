@@ -13,6 +13,8 @@ import {
   teacherListQuerySchema,
   updateUserStatusSchema,
   assignEnrollmentSchema,
+  updateStudentSchema,
+  updateTeacherSchema,
 } from "./user.validation.js";
 
 const router = Router();
@@ -35,6 +37,13 @@ router.get(
   "/students/:profileId",
   validate(profileIdParamSchema, "params"),
   controller.getStudent,
+);
+
+router.patch(
+  "/students/:profileId",
+  validate(profileIdParamSchema, "params"),
+  validate(updateStudentSchema),
+  controller.updateStudent,
 );
 
 // STUDENT ENROLLMENTS
@@ -64,6 +73,13 @@ router.get(
   "/teachers/:profileId",
   validate(profileIdParamSchema, "params"),
   controller.getTeacher,
+);
+
+router.patch(
+  "/teachers/:profileId",
+  validate(profileIdParamSchema, "params"),
+  validate(updateTeacherSchema),
+  controller.updateTeacher,
 );
 
 // ACCOUNT STATUS

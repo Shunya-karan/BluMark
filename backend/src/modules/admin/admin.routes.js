@@ -10,6 +10,8 @@ import * as controller from "./admin.controller.js";
 import {
   updateAdminProfileSchema,
   recentActivityQuerySchema,
+  attendanceSessionsQuerySchema,
+  sessionIdParamSchema,
 } from "./admin.validation.js";
 
 const router = Router();
@@ -42,4 +44,18 @@ router.patch(
   controller.updateProfile,
 );
 
+// ATTENDANCE
+router.get(
+  "/attendance/sessions",
+  validate(attendanceSessionsQuerySchema, "query"),
+  controller.listAttendanceSessions,
+);
+
+router.get(
+  "/attendance/sessions/:sessionId",
+  validate(sessionIdParamSchema, "params"),
+  controller.getAttendanceSessionDetails,
+);
+
 export default router;
+
