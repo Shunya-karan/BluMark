@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/app.dart';
+import 'core/config/app_role.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: BluMarkApp()));
+  runApp(
+    ProviderScope(
+      overrides: [appRoleProvider.overrideWithValue(AppRole.student)],
+      child: const BluMarkApp(),
+    ),
+  );
 }

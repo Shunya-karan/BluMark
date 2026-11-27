@@ -33,7 +33,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       backgroundColor: AppColors.background,
       extendBodyBehindAppBar: true,
       appBar: AuthHeader(
-        onBack: _isSending ? null : () => context.go('/role'),
+        onBack: _isSending ? null : () => context.go('/login'),
         showLogo: false,
         isLoading: _isSending,
       ),
@@ -193,7 +193,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                           child: TextButton(
                             onPressed: _isSending
                                 ? null
-                                : () => context.go('/role'),
+                                : () => context.go('/login'),
                             child: const Text(
                               'Return to sign in',
                               style: TextStyle(

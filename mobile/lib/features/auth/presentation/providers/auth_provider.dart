@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/config/app_role.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../data/datasources/auth_remote_data_source.dart';
@@ -48,12 +49,17 @@ final authRepositoryProvider = Provider(
 );
 
 final authProvider = StateNotifierProvider<AuthController, AuthState>(
-  (ref) => AuthController(ref.read(authRepositoryProvider)),
+  (ref) => AuthController(
+    ref.read(authRepositoryProvider),
+    ref.watch(appRoleProvider),
+  ),
 );
 
 class AuthController extends StateNotifier<AuthState> {
-  AuthController(this._repository) : super(const AuthState(AuthStatus.initial));
+  AuthController(this._repository, [this._appRole = AppRole.student])
+    : super(const AuthState(AuthStatus.initial));
   final AuthRepository _repository;
+  final AppRole _appRole;
 
   Future<void> restore() async {
     if (state.status == AuthStatus.loading ||
@@ -63,23 +69,33 @@ class AuthController extends StateNotifier<AuthState> {
     state = const AuthState(AuthStatus.refreshing);
     try {
       final user = await _repository.restore();
+      if (user.role.toUpperCase() != _appRole.apiRole) {
+        await _repository.logout();
+        state = const AuthState(AuthStatus.unauthenticated);
+        return;
+      }
       state = AuthState(AuthStatus.authenticated, user: user);
     } catch (_) {
       state = const AuthState(AuthStatus.unauthenticated);
     }
   }
 
-  Future<bool> login(String email, String password, String selectedRole) async {
+  Future<bool> login(
+    String email,
+    String password, [
+    String? selectedRole,
+  ]) async {
     if (state.status == AuthStatus.loading) return false;
     state = const AuthState(AuthStatus.loading);
     try {
       final user = await _repository.login(email, password);
-      if (user.role != selectedRole) {
+      final expectedRole = (selectedRole ?? _appRole.apiRole).toUpperCase();
+      if (user.role.toUpperCase() != expectedRole) {
         await _repository.logout();
-        state = const AuthState(
+        state = AuthState(
           AuthStatus.unauthenticated,
           message:
-              'The selected account type does not match your registered account.',
+              'This account is not a ${_appRole.displayName} account. Please sign in with a ${_appRole.displayName.toLowerCase()} account.',
         );
         return false;
       }

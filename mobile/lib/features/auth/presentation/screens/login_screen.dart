@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/config/app_role.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/auth_header.dart';
 import '../../../../core/widgets/background_orbs.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key, required this.role});
+  const LoginScreen({super.key, this.role});
 
-  final String role;
+  final String? role;
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -31,10 +32,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  String get _effectiveRole =>
+      (widget.role ?? ref.read(appRoleProvider).apiRole).toUpperCase();
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final isRoleTeacher = widget.role == 'TEACHER';
+    final appRole = ref.watch(appRoleProvider);
+    final effectiveRole = (widget.role ?? appRole.apiRole).toUpperCase();
+    final isRoleTeacher = effectiveRole == 'TEACHER';
     final accentColor = isRoleTeacher ? AppColors.teal : AppColors.primary;
 
     final isBusy = _isSubmitting || authState.status == AuthStatus.loading;
@@ -45,7 +51,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       backgroundColor: AppColors.background,
       extendBodyBehindAppBar: true,
       appBar: AuthHeader(
-        onBack: isBusy ? null : () => context.go('/role'),
         showLogo: false,
         isLoading: isBusy,
       ),
@@ -85,16 +90,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        const Text(
-                          'Sign in to continue to your Blu-Mark account.',
-                          style: TextStyle(
+                        Text(
+                          'Sign in to continue to your ${isRoleTeacher ? 'BluMark Teacher' : 'BluMark Student'} account.',
+                          style: const TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 15,
                             height: 1.45,
                           ),
                         ),
                         const SizedBox(height: 18),
-                        _RolePill(role: widget.role, accentColor: accentColor),
+                        _RolePill(role: effectiveRole, accentColor: accentColor),
                         const SizedBox(height: 26),
                         TextFormField(
                           controller: _emailController,
@@ -211,21 +216,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   ),
                                 ),
                         ),
-                        const SizedBox(height: 16),
-                        Center(
-                          child: TextButton(
-                            onPressed: isBusy
-                                ? null
-                                : () => context.go('/role'),
-                            child: const Text(
-                              'Choose a different role',
-                              style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -257,7 +247,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           .login(
             _emailController.text.trim(),
             _passwordController.text,
-            widget.role,
+            _effectiveRole,
           );
 
       if (!mounted) return;

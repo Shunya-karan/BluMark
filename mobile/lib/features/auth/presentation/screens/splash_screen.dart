@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/config/app_role.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/background_orbs.dart';
 import '../providers/auth_provider.dart';
@@ -51,6 +52,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final appRole = ref.watch(appRoleProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(
@@ -72,16 +75,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                         filterQuality: FilterQuality.high,
                       ),
                       const SizedBox(height: 16),
-                      // const Text(
-                      //   'Blu-Mark',
-                      //   style: TextStyle(
-                      //     color: AppColors.primary,
-                      //     fontSize: 32,
-                      //     fontWeight: FontWeight.w800,
-                      //     letterSpacing: -0.5,
-                      //   ),
-                      // ),
-                      // const SizedBox(height: 6),
                       const Text(
                         'Smart Attendance System',
                         style: TextStyle(
@@ -89,6 +82,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
                           letterSpacing: 0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${appRole.displayName} App',
+                        style: TextStyle(
+                          color: appRole == AppRole.teacher
+                              ? AppColors.teal
+                              : AppColors.primary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
                         ),
                       ),
                       const SizedBox(height: 44),

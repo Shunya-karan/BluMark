@@ -23,6 +23,20 @@ android {
         versionName = flutter.versionName
     }
 
+    flavorDimensions += "role"
+    productFlavors {
+        create("student") {
+            dimension = "role"
+            applicationIdSuffix = ".student"
+            manifestPlaceholders["appName"] = "BluMark Student"
+        }
+        create("teacher") {
+            dimension = "role"
+            applicationIdSuffix = ".teacher"
+            manifestPlaceholders["appName"] = "BluMark Teacher"
+        }
+    }
+
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")

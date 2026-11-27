@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/config/app_role.dart';
 import '../features/auth/presentation/providers/auth_provider.dart';
 import '../features/auth/presentation/screens/auth_screens.dart';
 import '../features/teacher/dashboard/screens/teacher_dashboard_screen.dart';
@@ -41,6 +42,7 @@ final routerNotifierProvider = Provider<RouterNotifier>((ref) {
 
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = ref.watch(routerNotifierProvider);
+  final appRole = ref.watch(appRoleProvider);
   return GoRouter(
     initialLocation: '/splash',
     refreshListenable: notifier,
@@ -50,13 +52,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SplashScreen(),
       ),
       GoRoute(
-        path: '/role',
-        builder: (context, state) => const RoleSelectionScreen(),
-      ),
-      GoRoute(
-        path: '/login/:role',
-        builder: (context, state) =>
-            LoginScreen(role: state.pathParameters['role'] ?? 'STUDENT'),
+        path: '/login',
+        builder: (context, state) => LoginScreen(role: appRole.apiRole),
       ),
       GoRoute(
         path: '/forgot',
@@ -186,10 +183,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final auth = ref.read(authProvider);
       final path = state.matchedLocation;
       final isPublic =
-          path == '/splash' ||
-          path == '/role' ||
-          path.startsWith('/login') ||
-          path == '/forgot';
+          path == '/splash' || path == '/login' || path == '/forgot';
 
       if (auth.status == AuthStatus.initial ||
           auth.status == AuthStatus.refreshing) {
@@ -202,12 +196,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (auth.status == AuthStatus.unauthenticated ||
           auth.status == AuthStatus.error) {
         if (path == '/splash') {
-          return '/role';
+          return '/login';
         }
         if (isPublic) {
           return null;
         }
-        return '/role';
+        return '/login';
       }
 
       if (auth.status == AuthStatus.loading) {
@@ -216,8 +210,8 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (auth.status == AuthStatus.authenticated) {
         final user = auth.user;
-        if (user == null) {
-          return '/role';
+        if (user == null || user.role.toUpperCase() != appRole.apiRole) {
+          return '/login';
         }
 
         if (user.mustChangePassword) {
@@ -227,23 +221,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           return '/change-password';
         }
 
-        final homePath = user.role.toUpperCase() == 'STUDENT'
-            ? '/student'
-            : user.role.toUpperCase() == 'TEACHER'
-            ? '/teacher'
-            : '/role';
+        final homePath = appRole.homePath;
 
         if (path == '/splash' || isPublic || path == '/change-password') {
           return homePath;
         }
 
-        if (user.role.toUpperCase() == 'STUDENT' &&
-            path.startsWith('/teacher')) {
+        if (appRole == AppRole.student && path.startsWith('/teacher')) {
           return '/student';
         }
 
-        if (user.role.toUpperCase() == 'TEACHER' &&
-            path.startsWith('/student')) {
+        if (appRole == AppRole.teacher && path.startsWith('/student')) {
           return '/teacher';
         }
 

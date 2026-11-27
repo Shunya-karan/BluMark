@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="blumark" type="FlutterRunConfigurationType" factoryName="Flutter" editBeforeRun="true" focusToolWindowBeforeRun="true">
     <option name="additionalArgs" value="-d chrome" />
-    <option name="filePath" value="$PROJECT_DIR$/frontend/lib/main.dart" />
+    <option name="filePath" value="$PROJECT_DIR$/mobile/lib/main.dart" />
     <method v="2" />
   </configuration>
 </component>
